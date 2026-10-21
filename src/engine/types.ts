@@ -19,10 +19,10 @@ export type Brand = z.infer<typeof brandSchema>;
 
 /** Per-element overrides from the editor: anything a user moves or restyles. */
 export const transformSchema = z.object({
-  x: z.number().default(0), // px offset in the output's own pixels
-  y: z.number().default(0),
-  scale: z.number().default(1),
-  rotate: z.number().default(0),
-  hidden: z.boolean().default(false),
+  x: z.number().optional(), // px offset in the output's own pixels
+  y: z.number().optional(),
+  scale: z.number().optional(),
+  rotate: z.number().optional(),
+  hidden: z.boolean().optional(),
 });
 export type Transform = z.infer<typeof transformSchema>;

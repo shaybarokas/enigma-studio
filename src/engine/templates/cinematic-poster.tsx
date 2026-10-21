@@ -114,7 +114,7 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
       {/* Brand wordmark sits behind the hero. */}
       <Placed
         box={L.wordmark}
-        t={o.wordmark}
+        el="wordmark" t={o.wordmark}
         style={{ display: "flex", flexDirection: "column", alignItems: L.wordmark.align === "center" ? "center" : "flex-end", direction: "ltr" }}
       >
         {copy.wordmark.map((line, i) => (
@@ -144,7 +144,7 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
       {/* The promise, in Hebrew. */}
       <Placed
         box={L.subtitle}
-        t={o.subtitle}
+        el="subtitle" t={o.subtitle}
         style={{
           display: "flex",
           flexDirection: "column",

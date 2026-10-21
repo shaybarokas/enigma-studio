@@ -72,7 +72,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         </>
       )}
 
-      <Placed box={headBox} t={o.headline} style={{ opacity: headIn, translate: `0 ${(1 - headIn) * 30}px`, textAlign: landscape ? "right" : "center", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
+      <Placed box={headBox} el="headline" t={o.headline} style={{ opacity: headIn, translate: `0 ${(1 - headIn) * 30}px`, textAlign: landscape ? "right" : "center", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
         {stacked ? (
           <>
             <div style={{ fontFamily: head, fontWeight: 900, fontSize: hSize, lineHeight: 1.1, color: ink, whiteSpace: "nowrap" }}>{h1}</div>
@@ -85,7 +85,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         )}
       </Placed>
 
-      <Placed box={listBox} t={o.bullets} style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: itemSize * 0.55 }}>
+      <Placed box={listBox} el="bullets" t={o.bullets} style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: itemSize * 0.55 }}>
         {bullets.map((b, i) => {
           const p = enter(12 + i * 6, 22);
           return (
@@ -112,7 +112,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         })}
       </Placed>
 
-      <Placed box={ctaBox} t={o.cta} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ctaSize * 0.6 }}>
+      <Placed box={ctaBox} el="cta" t={o.cta} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ctaSize * 0.6 }}>
         <CtaButton text={copy.cta} font={body} size={ctaSize} color={accent} ink={inkOn(accent)} progress={ctaIn} />
         {copy.price && (
           <div style={{ fontFamily: head, fontWeight: 900, fontSize: ctaSize * 1.7, color: ink, opacity: ctaIn, textShadow: `0 4px 20px #000000${alpha(0.6)}` }}>

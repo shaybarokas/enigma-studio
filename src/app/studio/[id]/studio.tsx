@@ -36,9 +36,10 @@ export function Studio({ initial }: { initial: Kit }) {
       setKit((k) => ({
         ...k,
         messages: [...k.messages, d.reply],
-        brief: d.brief,
+        brief: d.brief ?? k.brief,
         ready: d.ready || k.ready,
         title: d.title ?? k.title,
+        design: d.design ?? k.design,
       }));
     } catch (e) {
       setError((e as Error).message);
@@ -86,7 +87,7 @@ export function Studio({ initial }: { initial: Kit }) {
     setError("");
     try {
       const d = await post("/choose", JSON.stringify({ index }));
-      setKit((k) => ({ ...k, chosen: index, design: d.design, status: "ready" }));
+      setKit((k) => ({ ...k, chosen: index, design: d.design, status: "ready", messages: d.messages ?? k.messages }));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -141,6 +142,7 @@ export function Studio({ initial }: { initial: Kit }) {
           onUpload={upload}
           onChoose={choose}
           onReopenConcepts={reopenConcepts}
+          onDesignChange={(design) => setKit((k) => ({ ...k, design }))}
         />
       </section>
     </div>

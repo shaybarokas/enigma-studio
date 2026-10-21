@@ -96,6 +96,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
       <Placed
         key={i}
         box={{ left: W * x - w / 2, top: H * y - h / 2, width: w, height: h }}
+        el={`prop${i}`}
         t={o[`prop${i}`]}
         style={{ opacity: pIn, translate: `0 ${bob + (1 - pIn) * 60}px`, rotate: `${spin}deg`, scale: `${0.7 + 0.3 * pIn}` }}
       >
@@ -124,7 +125,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
 
       <Placed
         box={markBox}
-        t={o.wordmark}
+        el="wordmark" t={o.wordmark}
         style={{ display: "flex", flexDirection: "column", alignItems: wide ? "flex-end" : "center", direction: "ltr", opacity: markIn, translate: `0 ${(1 - markIn) * -40}px` }}
       >
         {copy.wordmark.map((line, i) => (
@@ -159,7 +160,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
 
       <Placed
         box={subBox}
-        t={o.subtitle}
+        el="subtitle" t={o.subtitle}
         style={{ display: "flex", alignItems: "flex-end", justifyContent: wide ? "flex-start" : "center", opacity: subIn }}
       >
         <div

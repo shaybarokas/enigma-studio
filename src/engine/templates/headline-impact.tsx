@@ -97,7 +97,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
       {/* The hook. */}
       <Placed
         box={textBox}
-        t={o.headline}
+        el="headline" t={o.headline}
         style={{ display: "flex", flexDirection: "column", justifyContent: wide ? "center" : "flex-start", alignItems: wide ? "flex-start" : "center", textAlign: wide ? "right" : "center" }}
       >
         <div

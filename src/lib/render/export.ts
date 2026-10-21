@@ -1,7 +1,7 @@
 // Renders a kit's outputs at full resolution and stores them for download.
 import { renderStillOnVercel } from "@remotion/vercel";
 import { zipSync } from "fflate";
-import type { DesignProps } from "@/engine/design";
+import { forView, type DesignProps } from "@/engine/design";
 import { FORMATS, type FormatId } from "@/engine/formats";
 import { CATALOG, type TemplateId } from "@/engine/catalog";
 import { createAdminClient } from "../supabase/admin";
@@ -28,7 +28,7 @@ export async function exportStills(design: DesignProps, items: ExportItem[], fol
       const { sandboxFilePath } = await renderStillOnVercel({
         sandbox,
         compositionId: `design-${item.template}-${item.format}`,
-        inputProps: design as unknown as Record<string, unknown>,
+        inputProps: forView(design, item.template, item.format) as unknown as Record<string, unknown>,
         frame: FRAME,
         imageFormat: "png",
         timeoutInMilliseconds: 60_000,

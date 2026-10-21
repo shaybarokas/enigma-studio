@@ -7,6 +7,7 @@ import type { TemplateId } from "@/engine/templates";
 import type { DesignProps } from "@/engine/design";
 import type { Brief } from "@/lib/agent/brief";
 import type { Kit } from "@/lib/kits";
+import { Editor } from "./editor";
 
 type Props = {
   kit: Kit;
@@ -16,6 +17,7 @@ type Props = {
   onUpload: (f: File) => void;
   onChoose: (i: number) => void;
   onReopenConcepts: () => void;
+  onDesignChange: (d: DesignProps) => void;
 };
 
 export function Canvas(p: Props) {
@@ -28,6 +30,7 @@ export function Canvas(p: Props) {
         cover={p.kit.concepts[p.kit.chosen].concept.templateId as TemplateId}
         name={p.kit.concepts[p.kit.chosen].concept.name}
         onReopen={p.onReopenConcepts}
+        onDesignChange={p.onDesignChange}
       />
     );
   if (p.kit.concepts) return <Concepts kit={p.kit} onChoose={p.onChoose} onRegenerate={p.onGenerate} />;
@@ -297,14 +300,17 @@ function Gallery({
   cover,
   name,
   onReopen,
+  onDesignChange,
 }: {
   kitId: string;
   design: DesignProps;
   cover: TemplateId;
   name: string;
   onReopen: () => void;
+  onDesignChange: (d: DesignProps) => void;
 }) {
   const [live, setLive] = useState<{ template: TemplateId; format: FormatId } | null>(null);
+  const [editing, setEditing] = useState<{ template: TemplateId; format: FormatId } | null>(null);
   const sections: { title: string; note: string; template: TemplateId }[] = [
     { title: "גרפיקת תצוגה", note: "לעמוד הקורס, לדף המכירה ולתמונה הממוזערת", template: cover },
     { title: "מודעת הוק", note: "פותחת בכאב ועוצרת את הגלילה", template: "ad-hook" },
@@ -320,6 +326,12 @@ function Gallery({
         <div className="flex flex-wrap items-start gap-2">
           <button onClick={onReopen} className="rounded-full border border-border px-4 py-2.5 text-sm font-bold transition hover:border-brand hover:text-brand">
             החלפת כיוון
+          </button>
+          <button
+            onClick={() => setEditing({ template: cover, format: "landscape" })}
+            className="rounded-full border border-brand px-4 py-2.5 text-sm font-bold text-brand transition hover:bg-brand/10"
+          >
+            ✎ עריכת העיצוב
           </button>
           <DownloadButton
             label="⬇ הורדת כל הערכה (ZIP)"
@@ -361,6 +373,21 @@ function Gallery({
           initialFormat={live.format}
           title={sections.find((s) => s.template === live.template)?.title ?? ""}
           onClose={() => setLive(null)}
+          onEdit={(template, format) => {
+            setLive(null);
+            setEditing({ template, format });
+          }}
+        />
+      )}
+      {editing && (
+        <Editor
+          kitId={kitId}
+          design={design}
+          templates={sections.map((s) => s.template)}
+          initialTemplate={editing.template}
+          initialFormat={editing.format}
+          onChange={onDesignChange}
+          onClose={() => setEditing(null)}
         />
       )}
     </div>
@@ -374,8 +401,10 @@ function LiveView({
   initialFormat,
   title,
   onClose,
+  onEdit,
 }: {
   kitId?: string;
+  onEdit?: (template: TemplateId, format: FormatId) => void;
   design: DesignProps;
   template: TemplateId;
   initialFormat: FormatId;
@@ -395,6 +424,11 @@ function LiveView({
         <div className="flex w-full items-center justify-between gap-3 text-white">
           <h2 className="text-lg font-bold">{title}</h2>
           <div className="flex flex-wrap items-center gap-3">
+            {onEdit && (
+              <button onClick={() => onEdit(template, format)} className="rounded-full border border-white/40 px-4 py-2 text-sm font-bold text-white hover:bg-white/10">
+                ✎ עריכה
+              </button>
+            )}
             {kitId && (
               <DownloadButton
                 key={`${template}-${format}`}

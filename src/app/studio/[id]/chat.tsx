@@ -27,8 +27,11 @@ export function Chat({
   const [draft, setDraft] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
+  const firstScroll = useRef(true);
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Jump to the latest message on open, glide on new ones.
+    end.current?.scrollIntoView({ behavior: firstScroll.current ? "instant" : "smooth", block: "end" });
+    firstScroll.current = false;
   }, [messages.length, sending]);
 
   const submit = (text: string) => {

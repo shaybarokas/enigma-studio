@@ -14,19 +14,25 @@ export function useEnter() {
     spring({ frame: frame - delay, fps, config: { damping: 200 }, durationInFrames: frames });
 }
 
+/** A positioned element the editor can select (data-el) and move, scale, rotate or hide (t). */
 export const Placed: React.FC<{
   box: Box;
+  el?: string;
   t?: Partial<Transform>;
   style?: React.CSSProperties;
   children: React.ReactNode;
-}> = ({ box, t, style, children }) => {
+}> = ({ box, el, t, style, children }) => {
+  const { width: W } = useVideoConfig();
   if (t?.hidden) return null;
+  // A size change never pushes a full-width element out of the frame.
+  const scale = Math.min(t?.scale ?? 1, Math.max(1, (W * 0.96) / box.width));
   return (
     <div
+      data-el={el}
       style={{
         position: "absolute",
         ...box,
-        transform: `translate(${t?.x ?? 0}px, ${t?.y ?? 0}px) scale(${t?.scale ?? 1}) rotate(${t?.rotate ?? 0}deg)`,
+        transform: `translate(${t?.x ?? 0}px, ${t?.y ?? 0}px) scale(${scale}) rotate(${t?.rotate ?? 0}deg)`,
         ...style,
       }}
     >
@@ -83,7 +89,7 @@ export const Hero: React.FC<{
   const mask = `url("${src}")`;
   const towardFar = lightFrom === "right" ? "to left" : "to right";
   return (
-    <Placed box={box} t={t} style={{ opacity: progress, translate: `0 ${(1 - progress) * H * 0.05}px` }}>
+    <Placed box={box} el="subject" t={t} style={{ opacity: progress, translate: `0 ${(1 - progress) * H * 0.05}px` }}>
       <Img
         src={src}
         style={{

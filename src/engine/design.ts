@@ -41,3 +41,46 @@ export function splitHeadline(h: string): [string, string] {
   const i = h.indexOf("|");
   return i < 0 ? [h, ""] : [h.slice(0, i).trim(), h.slice(i + 1).trim()];
 }
+
+/**
+ * Editor overrides are stored per output ("ad-hook|story|headline": moved in the story ad only) or
+ * for every output ("headline"). Templates read plain element ids, so each render gets the
+ * overrides of its own template and format merged in.
+ */
+export function overrideKey(template: string, format: string, el: string) {
+  return `${template}|${format}|${el}`;
+}
+
+export function forView(design: DesignProps, template: string, format: string): DesignProps {
+  const global: DesignProps["overrides"] = {};
+  const local: DesignProps["overrides"] = {};
+  for (const [key, t] of Object.entries(design.overrides ?? {})) {
+    const parts = key.split("|");
+    if (parts.length === 1) global[key] = t;
+    else if (parts[0] === template && parts[1] === format) local[parts[2]] = t;
+  }
+  // Sizes multiply ("headline 20% bigger everywhere" × "a bit smaller in the story"); the rest of
+  // the output's own edits win.
+  const merged: DesignProps["overrides"] = {};
+  for (const el of new Set([...Object.keys(global), ...Object.keys(local)])) {
+    const g = global[el] ?? {};
+    const l = local[el] ?? {};
+    merged[el] = { ...g, ...l, scale: (g.scale ?? 1) * (l.scale ?? 1) };
+  }
+  return { ...design, overrides: merged };
+}
+
+/** Hebrew names for the elements the editor can select. */
+export const ELEMENT_NAMES: Record<string, string> = {
+  subject: "המרצה",
+  wordmark: "שם המותג",
+  subtitle: "ההבטחה",
+  headline: "הכותרת",
+  cta: "כפתור ההנעה",
+  bullets: "הרשימה",
+  prop0: "אביזר 1",
+  prop1: "אביזר 2",
+  prop2: "אביזר 3",
+  prop3: "אביזר 4",
+  prop4: "אביזר 5",
+};

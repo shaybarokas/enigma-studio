@@ -59,7 +59,7 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
       <Scene src={!landscape && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} grade={0.6} blur={8} brightness={0.55} />
       <AbsoluteFill style={{ background: `linear-gradient(to bottom, ${bg}${alpha(0.85)} 0%, ${bg}${alpha(0.4)} 45%, ${bg}${alpha(0.9)} 100%)` }} />
 
-      <Placed box={textBox} t={o.headline} style={{ display: "flex", flexDirection: "column", justifyContent: landscape ? "center" : "flex-start", alignItems: landscape ? "flex-start" : "center", textAlign: landscape ? "right" : "center" }}>
+      <Placed box={textBox} el="headline" t={o.headline} style={{ display: "flex", flexDirection: "column", justifyContent: landscape ? "center" : "flex-start", alignItems: landscape ? "flex-start" : "center", textAlign: landscape ? "right" : "center" }}>
         <div style={{ fontFamily: head, fontWeight: 900, fontSize: qSize, lineHeight: 1.05, color: ink, opacity: qIn1, translate: `0 ${(1 - qIn1) * 40}px`, whiteSpace: "nowrap" }}>
           {q1}
         </div>
@@ -93,7 +93,7 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
       )}
       <AbsoluteFill style={{ background: `linear-gradient(to top, ${bg} 0%, transparent 18%)` }} />
 
-      <Placed box={ctaBox} t={o.cta} style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", justifyContent: "flex-end", gap: ctaSize * 0.5 }}>
+      <Placed box={ctaBox} el="cta" t={o.cta} style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", justifyContent: "flex-end", gap: ctaSize * 0.5 }}>
         <div style={{ direction: "ltr", opacity: ctaIn }}>
           <MetalText text={copy.wordmark.join(" ")} font={display} size={ctaSize * 0.9} ink={ink} muted={muted} progress={ctaIn} />
         </div>
