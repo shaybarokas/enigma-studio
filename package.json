@@ -13,6 +13,7 @@
     "@remotion/google-fonts": "^4.0.537",
     "@remotion/layout-utils": "^4.0.537",
     "@remotion/player": "^4.0.537",
+    "@remotion/transitions": "^4.0.537",
     "@remotion/vercel": "^4.0.537",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",

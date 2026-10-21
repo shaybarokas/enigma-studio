@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/kits/[id]/export": ["./remotion-bundle/**/*"],
     "/api/render/warm": ["./remotion-bundle/**/*"],
+    "/api/kits/[id]/videos": ["./remotion-bundle/**/*"],
   },
   serverExternalPackages: ["@remotion/vercel", "@vercel/sandbox"],
   partialPrefetching: true,

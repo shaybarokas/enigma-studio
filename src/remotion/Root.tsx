@@ -2,7 +2,9 @@ import { Composition } from "remotion";
 import { designSchema, type DesignProps } from "../engine/design";
 import { FORMATS, FORMAT_IDS } from "../engine/formats";
 import { TEMPLATES, TEMPLATE_IDS } from "../engine/templates";
-import { brickBoss, swingWin } from "./samples";
+import { calculateVideoMetadata, VideoComposition } from "../engine/video/video";
+import { videoSchema } from "../engine/video/schema";
+import { brickBoss, sampleVideo, swingWin } from "./samples";
 
 const SAMPLES: Record<string, DesignProps> = { brick: brickBoss, swing: swingWin };
 
@@ -11,6 +13,18 @@ const SAMPLES: Record<string, DesignProps> = { brick: brickBoss, swing: swingWin
 // Stills render the last frame; video uses all of it.
 export const RemotionRoot: React.FC = () => (
   <>
+    {/* Videos: length comes from the scenes (calculateMetadata). */}
+    <Composition
+      id="video"
+      component={VideoComposition}
+      schema={videoSchema}
+      defaultProps={sampleVideo}
+      calculateMetadata={calculateVideoMetadata}
+      width={1080}
+      height={1920}
+      fps={30}
+      durationInFrames={300}
+    />
     {TEMPLATE_IDS.flatMap((t) =>
       FORMAT_IDS.map((f) => (
         <Composition

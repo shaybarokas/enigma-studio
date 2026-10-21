@@ -1,6 +1,7 @@
 // Sample kits used to develop and test templates. Assets live in public/dev (not committed).
 import { staticFile } from "remotion";
 import type { DesignProps } from "../engine/design";
+import type { VideoProps } from "../engine/video/schema";
 
 export const brickBoss: DesignProps = {
   brand: {
@@ -62,4 +63,21 @@ export const swingWin: DesignProps = {
   },
   subjectSide: "right",
   overrides: {},
+};
+
+// Fake word timings (no audio) to develop the video scenes and captions.
+const timed = (line: string, from = 0.3) =>
+  line.split(" ").map((text, i) => ({ text, start: from + i * 0.32, end: from + i * 0.32 + 0.28 }));
+
+export const sampleVideo: VideoProps = {
+  kind: "promo",
+  design: brickBoss,
+  cover: "cinematic-poster",
+  captions: true,
+  scenes: [
+    { type: "cover", voice: "", emphasis: ["משקיעים"], words: timed("הכירו את בריק בוס, הדרך שלך ללוות משקיעים"), durationInFrames: 110 },
+    { type: "hero", voice: "", emphasis: ["עשרים"], words: timed("עשרים שנה בשוק הנדל״ן, עכשיו זה התור שלך"), durationInFrames: 100 },
+    { type: "bullets", voice: "", emphasis: [], words: [], durationInFrames: 120 },
+    { type: "cta", voice: "", emphasis: [], words: [], durationInFrames: 90 },
+  ],
 };

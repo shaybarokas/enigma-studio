@@ -8,6 +8,7 @@ import type { DesignProps } from "@/engine/design";
 import type { Brief } from "@/lib/agent/brief";
 import type { Kit } from "@/lib/kits";
 import { Editor } from "./editor";
+import { Videos } from "./videos";
 
 type Props = {
   kit: Kit;
@@ -365,6 +366,7 @@ function Gallery({
           </ul>
         </section>
       ))}
+      <Videos kitId={kitId} />
       {live && (
         <LiveView
           kitId={kitId}
