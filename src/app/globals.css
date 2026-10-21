@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/* Enigma Studio brand line (from ENIGMA): purple, neon purple, charcoal, pearl white. */
+:root {
+  --bg: #faf8ff;
+  --surface: #ffffff;
+  --text: #0f0f1a;
+  --muted: #5b5b72;
+  --border: #e6e1f5;
+  --brand: #7c3aed;
+  --brand-strong: #5b21b6;
+  --neon: #c084fc;
+  --danger: #b91c1c;
+  --ok: #047857;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --text: #f4f1ff;
+    --muted: #a7a3c2;
+    --border: #2a2a45;
+    --brand: #a78bfa;
+    --brand-strong: #c084fc;
+    --neon: #c084fc;
+    --danger: #f87171;
+    --ok: #34d399;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f0f1a;
+  --surface: #1a1a2e;
+  --text: #f4f1ff;
+  --muted: #a7a3c2;
+  --border: #2a2a45;
+  --brand: #a78bfa;
+  --brand-strong: #c084fc;
+  --neon: #c084fc;
+  --danger: #f87171;
+  --ok: #34d399;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-neon: var(--neon);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-heebo);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-heebo), system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid var(--neon);
+  outline-offset: 2px;
+}
+
+/* Floating format cards on the home hero. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--tilt, 0deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(var(--tilt, 0deg));
+  }
+}
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.float {
+  animation: float 7s ease-in-out infinite;
+}
+.glow {
+  animation: glow 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
