@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
+    // Pin the root to this project (a stray lockfile in the home folder confuses detection).
+    root: __dirname,
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

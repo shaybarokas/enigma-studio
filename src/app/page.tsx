@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Temporary home until the marketing site (phase 7): brand line, promise, the four formats.
 const formats = [
   { label: "16:9", name: "תצוגה ומצגת", w: 176, h: 99, tilt: "-6deg", delay: "0s" },
@@ -16,7 +18,7 @@ export default function Home() {
       />
 
       <p className="relative mb-4 rounded-full border border-border bg-surface/70 px-4 py-1 text-sm text-muted backdrop-blur">
-        בקרוב · מבית אניגמה
+        גרסת בטא · מבית אניגמה
       </p>
       <h1 className="relative text-center text-5xl font-black tracking-tight sm:text-7xl">
         Enigma <span className="text-brand">Studio</span>
@@ -25,6 +27,15 @@ export default function Home() {
         מספרים לסוכן על מה אתם משיקים, ומקבלים ערכת השקה שלמה: גרפיקות, מודעות וסרטונים מרהיבים, בקו עיצובי
         אחד ובשליטה מלאה שלכם.
       </p>
+
+      <div className="relative mt-8 flex flex-wrap justify-center gap-3">
+        <Link href="/signup" className="rounded-full bg-brand px-7 py-3.5 font-bold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-strong">
+          מתחילים בחינם
+        </Link>
+        <Link href="/login" className="rounded-full border border-border bg-surface/70 px-7 py-3.5 font-bold backdrop-blur transition hover:border-brand hover:text-brand">
+          כניסה
+        </Link>
+      </div>
 
       <ul className="relative mt-14 flex flex-wrap items-end justify-center gap-6" aria-label="הגדלים שהסטודיו מייצר">
         {formats.map((f) => (
