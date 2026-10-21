@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/bundle-remotion.mjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -13,8 +13,11 @@
     "@remotion/google-fonts": "^4.0.537",
     "@remotion/layout-utils": "^4.0.537",
     "@remotion/player": "^4.0.537",
+    "@remotion/vercel": "^4.0.537",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
+    "@vercel/sandbox": "^3.8.0",
+    "fflate": "^0.8.3",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",

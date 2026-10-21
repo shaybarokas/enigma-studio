@@ -23,6 +23,7 @@ export function Canvas(p: Props) {
   if (p.kit.status === "ready" && p.kit.design && p.kit.chosen != null && p.kit.concepts)
     return (
       <Gallery
+        kitId={p.kit.id}
         design={p.kit.design}
         cover={p.kit.concepts[p.kit.chosen].concept.templateId as TemplateId}
         name={p.kit.concepts[p.kit.chosen].concept.name}
@@ -255,7 +256,54 @@ function Concepts({ kit, onChoose, onRegenerate }: { kit: Kit; onChoose: (i: num
 
 // ── The kit: every output of the chosen direction. ──
 
-function Gallery({ design, cover, name, onReopen }: { design: DesignProps; cover: TemplateId; name: string; onReopen: () => void }) {
+// Full-resolution files are rendered on the server; the browser then downloads the result.
+async function requestExport(kitId: string, body: object): Promise<{ files: { url: string }[]; zipUrl?: string }> {
+  const res = await fetch(`/api/kits/${kitId}/export`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "ההורדה לא הצליחה");
+  return data;
+}
+
+function DownloadButton({ label, busyLabel, run, className }: { label: string; busyLabel: string; run: () => Promise<string>; className: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <span className="inline-flex flex-col items-center gap-1">
+      <button
+        disabled={busy}
+        className={className}
+        onClick={async () => {
+          setBusy(true);
+          setError("");
+          try {
+            window.location.href = await run();
+          } catch (e) {
+            setError((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? busyLabel : label}
+      </button>
+      {error && <span className="text-xs text-danger">{error}</span>}
+    </span>
+  );
+}
+
+function Gallery({
+  kitId,
+  design,
+  cover,
+  name,
+  onReopen,
+}: {
+  kitId: string;
+  design: DesignProps;
+  cover: TemplateId;
+  name: string;
+  onReopen: () => void;
+}) {
   const [live, setLive] = useState<{ template: TemplateId; format: FormatId } | null>(null);
   const sections: { title: string; note: string; template: TemplateId }[] = [
     { title: "גרפיקת תצוגה", note: "לעמוד הקורס, לדף המכירה ולתמונה הממוזערת", template: cover },
@@ -269,9 +317,17 @@ function Gallery({ design, cover, name, onReopen }: { design: DesignProps; cover
           <p className="text-sm font-bold text-brand">הכיוון: {name}</p>
           <h1 className="text-2xl font-black">ערכת ההשקה שלך</h1>
         </div>
-        <button onClick={onReopen} className="rounded-full border border-border px-4 py-2 text-sm font-bold transition hover:border-brand hover:text-brand">
-          החלפת כיוון
-        </button>
+        <div className="flex flex-wrap items-start gap-2">
+          <button onClick={onReopen} className="rounded-full border border-border px-4 py-2.5 text-sm font-bold transition hover:border-brand hover:text-brand">
+            החלפת כיוון
+          </button>
+          <DownloadButton
+            label="⬇ הורדת כל הערכה (ZIP)"
+            busyLabel="מפיק 12 קבצים בגודל מלא… (כדקה)"
+            run={async () => (await requestExport(kitId, { all: true })).zipUrl!}
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-strong disabled:opacity-70"
+          />
+        </div>
       </div>
       {sections.map((s) => (
         <section key={s.template}>
@@ -299,6 +355,7 @@ function Gallery({ design, cover, name, onReopen }: { design: DesignProps; cover
       ))}
       {live && (
         <LiveView
+          kitId={kitId}
           design={design}
           template={live.template}
           initialFormat={live.format}
@@ -311,12 +368,14 @@ function Gallery({ design, cover, name, onReopen }: { design: DesignProps; cover
 }
 
 function LiveView({
+  kitId,
   design,
   template,
   initialFormat,
   title,
   onClose,
 }: {
+  kitId?: string;
   design: DesignProps;
   template: TemplateId;
   initialFormat: FormatId;
@@ -335,7 +394,16 @@ function LiveView({
       <div className="flex max-h-full w-full max-w-5xl flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex w-full items-center justify-between gap-3 text-white">
           <h2 className="text-lg font-bold">{title}</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {kitId && (
+              <DownloadButton
+                key={`${template}-${format}`}
+                label="⬇ הורדה בגודל מלא"
+                busyLabel="מפיק…"
+                run={async () => (await requestExport(kitId, { items: [{ template, format }] })).files[0].url}
+                className="rounded-full bg-white px-4 py-2 text-sm font-bold text-black transition hover:bg-white/85 disabled:opacity-70"
+              />
+            )}
             <FormatSwitch value={format} onChange={setFormat} />
             <button onClick={onClose} aria-label="סגירה" className="flex size-10 items-center justify-center rounded-full bg-white/10 text-xl hover:bg-white/20">
               ✕
