@@ -1,4 +1,6 @@
 // Google fonts the engine can use. Hebrew faces for copy, display faces for brand wordmarks.
+import { useEffect, useState } from "react";
+import { continueRender, delayRender } from "remotion";
 import { loadFont as heebo } from "@remotion/google-fonts/Heebo";
 import { loadFont as rubik } from "@remotion/google-fonts/Rubik";
 import { loadFont as secularOne } from "@remotion/google-fonts/SecularOne";
@@ -22,14 +24,42 @@ const loaders = {
 export type FontName = keyof typeof loaders;
 export const FONT_NAMES = Object.keys(loaders) as FontName[];
 
-const loaded = new Map<FontName, string>();
+const loaded = new Map<FontName, { family: string; done: Promise<unknown> }>();
+
+function load(name: FontName) {
+  let f = loaded.get(name);
+  if (!f) {
+    const r = loaders[name]();
+    f = { family: r.fontFamily, done: r.waitUntilDone() };
+    loaded.set(name, f);
+  }
+  return f;
+}
 
 /** Loads a font once and returns its CSS font-family. */
 export function fontFamily(name: FontName): string {
-  let family = loaded.get(name);
-  if (!family) {
-    family = loaders[name]().fontFamily;
-    loaded.set(name, family);
-  }
-  return family;
+  return load(name).family;
+}
+
+/**
+ * True once the given fonts have loaded. Text is measured to fit its box (fitText), and a measurement
+ * taken with a fallback font is wrong, so templates draw nothing until this is true. Stills and video
+ * frames wait for it too (delayRender).
+ */
+export function useFontsReady(names: FontName[]): boolean {
+  const key = names.join("|");
+  const [ready, setReady] = useState<string | null>(null);
+  useEffect(() => {
+    const handle = delayRender(`fonts ${key}`);
+    let live = true;
+    Promise.all(key.split("|").map((n) => load(n as FontName).done))
+      .then(() => {
+        if (live) setReady(key);
+      })
+      .finally(() => continueRender(handle));
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  return ready === key;
 }

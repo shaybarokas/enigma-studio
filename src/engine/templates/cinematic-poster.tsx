@@ -1,28 +1,13 @@
 // "Cinematic poster": the lecturer as hero against a graded scene, a metallic brand wordmark and a
-// Hebrew promise. Derived from Enigma's course covers (BRICK BOSS, CODE TO CODE, איתותים שקטים).
+// Hebrew promise. Derived from Enigma's course covers (BRICK BOSS, CODE TO CODE, LOAN LOGIC).
 import { fitText } from "@remotion/layout-utils";
-import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { z } from "zod";
+import { AbsoluteFill, interpolate, useVideoConfig } from "remotion";
+import type { DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE, type FormatId } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { brandSchema, transformSchema, type Transform } from "../types";
+import { Hero, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
 
-export const cinematicPosterSchema = z.object({
-  brand: brandSchema,
-  wordmark: z.array(z.string()).min(1).max(3), // brand-name lines, often English: ["BRICK", "BOSS"]
-  kicker: z.string(), // short line above the promise
-  subtitle: z.string(), // the Hebrew promise
-  background: z.string(), // wide scene
-  backgroundTall: z.string().optional(), // tall scene for 3:4 and story
-  subject: z.string(), // lecturer cut-out, cropped tight
-  subjectAspect: z.number(), // width / height of the cut-out
-  subjectSide: z.enum(["left", "right"]).default("left"),
-  overrides: z.record(z.string(), transformSchema.partial()).default({}),
-});
-export type CinematicPosterProps = z.infer<typeof cinematicPosterSchema>;
-
-type Box = { left: number; top: number; width: number; height: number };
 type Layout = {
   subject: Box;
   wordmark: Box & { align: "center" | "end" };
@@ -37,11 +22,10 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
   const mirror = (b: Box): Box => (side === "left" ? b : { ...b, left: W - b.left - b.width });
   if (format === "landscape") {
     const h = H * 0.97;
-    const w = h * ar;
     const textW = W * 0.46;
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {
-      subject: mirror({ left: W * 0.07, top: H - h, width: w, height: h }),
+      subject: mirror({ left: W * 0.07, top: H - h, width: h * ar, height: h }),
       wordmark: { left: textLeft, top: H * 0.13, width: textW, height: H * 0.42, align: "end" },
       subtitle: { left: textLeft, top: H * 0.62, width: textW, height: H * 0.28, align: "end" },
       sideFade: 0.62,
@@ -51,11 +35,10 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
   }
   if (format === "square") {
     const h = H * 0.8;
-    const w = h * ar;
     const textW = W * 0.56;
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {
-      subject: mirror({ left: W * 0.02, top: H - h, width: w, height: h }),
+      subject: mirror({ left: W * 0.02, top: H - h, width: h * ar, height: h }),
       wordmark: { left: W * 0.06, top: H * 0.07, width: W * 0.88, height: H * 0.3, align: "end" },
       subtitle: { left: textLeft, top: H * 0.6, width: textW, height: H * 0.32, align: "end" },
       sideFade: 0.7,
@@ -64,7 +47,7 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
     };
   }
   // Tall formats: wordmark on top, hero centred, promise over a deep bottom fade.
-  // The hero's height is settled later, once the wordmark's real size is known (see fitTall).
+  // The hero's box is settled once the wordmark's real size is known (see fitTall).
   const story = format === "story";
   const top = story ? H * (STORY_SAFE.top + 0.01) : H * 0.06;
   const subtitleBottom = story ? H * (1 - STORY_SAFE.bottom) : H * 0.95;
@@ -88,160 +71,69 @@ function fitTall(L: Layout, W: number, H: number, ar: number, lines: number, mar
   return { left: (W - w) / 2, top, width: w, height: w / ar };
 }
 
-const Placed: React.FC<{ box: Box; t?: Partial<Transform>; style?: React.CSSProperties; children: React.ReactNode }> = ({
-  box,
-  t,
-  style,
-  children,
-}) => {
-  if (t?.hidden) return null;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        ...box,
-        transform: `translate(${t?.x ?? 0}px, ${t?.y ?? 0}px) scale(${t?.scale ?? 1}) rotate(${t?.rotate ?? 0}deg)`,
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-};
-
-export const CinematicPoster: React.FC<CinematicPosterProps> = (p) => {
-  const frame = useCurrentFrame();
-  const { width: W, height: H, fps, durationInFrames } = useVideoConfig();
+export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
+  const { width: W, height: H } = useVideoConfig();
+  const enter = useEnter();
   const format = formatFromSize(W, H);
   const tall = format === "portrait" || format === "story";
-  const L = layoutFor(format, W, H, p.subjectAspect, p.subjectSide);
-  const { bg, ink, muted, accent } = p.brand.palette;
-  const display = fontFamily(p.brand.displayFont as FontName);
-  const body = fontFamily(p.brand.bodyFont as FontName);
-  const o = p.overrides;
+  const ar = assets.subject?.aspect ?? 0.62;
+  const L = layoutFor(format, W, H, ar, subjectSide);
+  const { bg, ink, muted, accent } = brand.palette;
+  const display = fontFamily(brand.displayFont as FontName);
+  const body = fontFamily(brand.bodyFont as FontName);
 
   // Wordmark size: the largest that fits the widest line, capped so it never shouts over the face.
-  const longest = p.wordmark.reduce((a, b) => (b.length > a.length ? b : a), "");
+  const longest = copy.wordmark.reduce((a, b) => (b.length > a.length ? b : a), "");
   const markSize = Math.min(
     L.maxWordmark,
     fitText({ text: longest, withinWidth: L.wordmark.width, fontFamily: display, fontWeight: 900 }).fontSize,
   );
-  if (tall) L.subject = fitTall(L, W, H, p.subjectAspect, p.wordmark.length, markSize);
+  if (tall) L.subject = fitTall(L, W, H, ar, copy.wordmark.length, markSize);
   const base = format === "landscape" ? H : W;
   const subtitleSize = Math.round(base * (format === "landscape" ? 0.052 : format === "story" ? 0.074 : 0.064));
   const kickerSize = Math.round(subtitleSize * 0.6);
   const justify = (a: "center" | "end") => (a === "center" ? "center" : "flex-start");
   // Scene light comes from the text side; the hero's far side falls into shadow.
-  const lightFromRight = p.subjectSide === "left";
+  const lightFrom = subjectSide === "left" ? "right" : "left";
 
-  // Motion: the same component is the promo's opening shot; stills are its last frame.
-  const enter = (delay: number) => spring({ frame: frame - delay, fps, config: { damping: 200 }, durationInFrames: 30 });
-  const push = interpolate(frame, [0, durationInFrames], [1.14, 1.04]);
-  const sceneIn = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
   const subjectIn = enter(6);
   const markIn = enter(14);
   const subIn = enter(24);
-  const sweep = interpolate(frame, [34, 70], [-60, 160], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
-  const subjectMask = `url("${p.subject}")`;
 
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
-      {/* Scene, slowly pushing in, graded toward the brand's darkest tone. */}
-      <AbsoluteFill style={{ opacity: sceneIn, transform: `scale(${push})` }}>
-        <Img
-          src={tall && p.backgroundTall ? p.backgroundTall : p.background}
-          style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) brightness(0.8)" }}
-        />
-      </AbsoluteFill>
-      <AbsoluteFill style={{ background: bg, mixBlendMode: "multiply", opacity: 0.4 }} />
+      <Scene src={tall && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} />
       {L.sideFade > 0 && (
         <AbsoluteFill
           style={{
-            background: `linear-gradient(${lightFromRight ? "to left" : "to right"}, ${bg}${alpha(0.9)} 0%, ${bg}${alpha(0.55)} ${L.sideFade * 55}%, transparent ${L.sideFade * 100}%)`,
+            background: `linear-gradient(${lightFrom === "right" ? "to left" : "to right"}, ${bg}${alpha(0.9)} 0%, ${bg}${alpha(0.55)} ${L.sideFade * 55}%, transparent ${L.sideFade * 100}%)`,
           }}
         />
       )}
 
-      {/* Brand wordmark sits behind the hero: metallic, tracking in, then a light sweep. */}
+      {/* Brand wordmark sits behind the hero. */}
       <Placed
         box={L.wordmark}
         t={o.wordmark}
-        style={{ display: "flex", flexDirection: "column", alignItems: justify(L.wordmark.align), direction: "ltr" }}
+        style={{ display: "flex", flexDirection: "column", alignItems: L.wordmark.align === "center" ? "center" : "flex-end", direction: "ltr" }}
       >
-        {p.wordmark.map((line, i) => (
-          <div
-            key={i}
-            style={{
-              fontFamily: display,
-              fontWeight: 900,
-              fontSize: markSize,
-              lineHeight: 0.95,
-              letterSpacing: `${interpolate(markIn, [0, 1], [0.25, 0.02])}em`,
-              opacity: markIn,
-              textTransform: "uppercase",
-              whiteSpace: "nowrap",
-              backgroundImage: `linear-gradient(100deg, transparent ${sweep - 20}%, #ffffff ${sweep}%, transparent ${sweep + 20}%), linear-gradient(180deg, #ffffff 0%, ${ink} 42%, ${muted} 58%, #ffffff 100%)`,
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              color: "transparent",
-              filter: `drop-shadow(0 ${markSize * 0.06}px ${markSize * 0.18}px #000000${alpha(0.55)})`,
-              alignSelf: L.wordmark.align === "center" ? "center" : "flex-end",
-            }}
-          >
-            {line}
-          </div>
+        {copy.wordmark.map((line, i) => (
+          <MetalText key={i} text={line} font={display} size={markSize} ink={ink} muted={muted} progress={markIn} />
         ))}
       </Placed>
 
-      {/* Hero: backlit, shaded on the far side, rim-lit on the near side, melting into the floor. */}
-      <Glow
-        x={L.subject.left + L.subject.width / 2}
-        y={L.subject.top + L.subject.height * 0.3}
-        size={L.subject.width * 1.5}
-        color={accent}
-        opacity={0.2 * subjectIn}
-      />
-      <Placed
-        box={L.subject}
-        t={o.subject}
-        style={{ opacity: subjectIn, translate: `0 ${(1 - subjectIn) * H * 0.05}px` }}
-      >
-        <Img
-          src={p.subject}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            filter: `brightness(0.9) contrast(1.1) saturate(0.82) drop-shadow(0 ${H * 0.02}px ${H * 0.05}px #000000${alpha(0.7)})`,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            maskImage: subjectMask,
-            maskSize: "100% 100%",
-            WebkitMaskImage: subjectMask,
-            WebkitMaskSize: "100% 100%",
-            background: `linear-gradient(${lightFromRight ? "to left" : "to right"}, ${accent}${alpha(0.28)} 0%, transparent 22%, transparent 55%, ${bg}${alpha(0.62)} 100%)`,
-            mixBlendMode: "soft-light",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            maskImage: `linear-gradient(to top, black 0%, transparent 30%), ${subjectMask}`,
-            maskComposite: "intersect",
-            maskSize: "100% 100%",
-            WebkitMaskImage: subjectMask,
-            WebkitMaskSize: "100% 100%",
-            background: `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.8)} 10%, transparent 34%)`,
-          }}
-        />
-      </Placed>
+      {assets.subject && (
+        <>
+          <Glow
+            x={L.subject.left + L.subject.width / 2}
+            y={L.subject.top + L.subject.height * 0.3}
+            size={L.subject.width * 1.5}
+            color={accent}
+            opacity={0.2 * subjectIn}
+          />
+          <Hero src={assets.subject.src} box={L.subject} t={o.subject} bg={bg} accent={accent} lightFrom={lightFrom} progress={subjectIn} />
+        </>
+      )}
 
       <AbsoluteFill
         style={{
@@ -263,17 +155,8 @@ export const CinematicPoster: React.FC<CinematicPosterProps> = (p) => {
           translate: `0 ${(1 - subIn) * 30}px`,
         }}
       >
-        <div
-          style={{
-            fontFamily: body,
-            fontWeight: 700,
-            fontSize: kickerSize,
-            color: accent,
-            letterSpacing: "0.04em",
-            marginBottom: kickerSize * 0.35,
-          }}
-        >
-          {p.kicker}
+        <div style={{ fontFamily: body, fontWeight: 700, fontSize: kickerSize, color: accent, letterSpacing: "0.04em", marginBottom: kickerSize * 0.35 }}>
+          {copy.kicker}
         </div>
         <div
           style={{
@@ -296,7 +179,7 @@ export const CinematicPoster: React.FC<CinematicPosterProps> = (p) => {
             textWrap: "balance",
           }}
         >
-          {p.subtitle}
+          {copy.subtitle}
         </div>
       </Placed>
 
