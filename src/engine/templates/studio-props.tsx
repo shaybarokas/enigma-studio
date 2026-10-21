@@ -55,7 +55,8 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
     wide ? H * 0.22 : W * 0.26,
   );
 
-  const heroH = wide ? H * 0.95 : H * (story ? 0.58 : 0.62);
+  // Height from the format, capped by width so a wide photo never swallows the wordmark.
+  const heroH = Math.min(wide ? H * 0.95 : H * (story ? 0.58 : 0.62), (W * (format === "landscape" ? 0.42 : wide ? 0.46 : 0.8)) / ar);
   const heroBox: Box = wide
     ? {
         left: subjectSide === "left" ? W * (format === "landscape" ? 0.12 : 0.02) : W - W * (format === "landscape" ? 0.1 : 0.02) - heroH * ar,
@@ -66,7 +67,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
     : { left: (W - heroH * ar) / 2, top: H - heroH, width: heroH * ar, height: heroH };
 
   const subBox: Box = wide
-    ? { left: markBox.left, top: H * 0.66, width: markBox.width, height: H * 0.26 }
+    ? { left: subjectSide === "left" ? W - W * 0.05 - W * 0.5 : W * 0.05, top: H * 0.66, width: format === "square" ? W * 0.5 : markBox.width, height: H * 0.26 }
     : { left: W * 0.06, top: H * (story ? 1 - STORY_SAFE.bottom - 0.12 : 0.84), width: W * 0.88, height: H * 0.12 };
 
   const heroIn = enter(8);
@@ -79,7 +80,11 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
     const img = assets.props[i % Math.max(assets.props.length, 1)];
     const spot = spots.at(i);
     if (!img || !spot) return null;
-    const [x, y, s, blur, depth] = spot;
+    const [x, y0, s0, blur, depth] = spot;
+    // In the square the hero is small, so near (front) props shrink and sink to the bottom edge.
+    const near = depth > 1;
+    const s = format === "square" && near ? s0 * 0.6 : s0;
+    const y = format === "square" && near ? Math.max(y0, 0.9) : y0;
     if (front !== depth > 1) return null;
     const size = short * s;
     const pIn = enter(4 + i * 4, 24);
@@ -142,7 +147,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
         {copy.tags.length > 0 && (
           <div style={{ display: "flex", gap: markSize * 0.12, marginTop: markSize * 0.18, direction: "rtl" }}>
             {copy.tags.map((t) => (
-              <Pill key={t} text={t} font={body} size={markSize * 0.2} color="#e23b3b" ink="#ffffff" />
+              <Pill key={t} text={t} font={body} size={markSize * 0.2} color={ink} ink={bg} />
             ))}
           </div>
         )}

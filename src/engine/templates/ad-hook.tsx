@@ -31,7 +31,7 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const fit = (t: string) => (t ? fitText({ text: t, withinWidth: textBox.width, fontFamily: head, fontWeight: 900 }).fontSize : Infinity);
   const qSize = Math.min(fit(q1), fit(q2), landscape ? H * 0.15 : W * 0.17);
 
-  const heroH = landscape ? H * 0.96 : H * (format === "square" ? 0.52 : story ? 0.6 : 0.6);
+  const heroH = Math.min(landscape ? H * 0.96 : H * (format === "square" ? 0.52 : 0.6), (W * (landscape ? 0.42 : 0.55)) / ar);
   const heroW = heroH * ar;
   const heroBox: Box = landscape
     ? { left: subjectSide === "left" ? W * 0.05 : W - W * 0.05 - heroW, top: H - heroH, width: heroW, height: heroH }

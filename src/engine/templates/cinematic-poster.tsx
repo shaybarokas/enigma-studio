@@ -21,7 +21,7 @@ type Layout = {
 function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "left" | "right"): Layout {
   const mirror = (b: Box): Box => (side === "left" ? b : { ...b, left: W - b.left - b.width });
   if (format === "landscape") {
-    const h = H * 0.97;
+    const h = Math.min(H * 0.97, (W * 0.42) / ar);
     const textW = W * 0.46;
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {
@@ -34,7 +34,7 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
     };
   }
   if (format === "square") {
-    const h = H * 0.8;
+    const h = Math.min(H * 0.8, (W * 0.5) / ar);
     const textW = W * 0.56;
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {

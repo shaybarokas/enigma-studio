@@ -32,7 +32,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const safeBottom = story ? H * (1 - STORY_SAFE.bottom) : H * 0.95;
 
   // The list column sits on the side away from the hero, who stands half out of frame behind it.
-  const colW = W * (landscape ? 0.54 : 0.74);
+  const colW = W * (landscape ? 0.54 : 0.68);
   const colLeft = subjectSide === "left" ? W - W * 0.05 - colW : W * 0.05;
   const headBox: Box = { left: landscape ? colLeft : W * 0.06, top: safeTop + H * 0.02, width: landscape ? colW : W * 0.88, height: H * 0.22 };
   const fit = (t: string) => (t ? fitText({ text: t, withinWidth: headBox.width, fontFamily: head, fontWeight: 900 }).fontSize : Infinity);
@@ -47,10 +47,10 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
     Math.min((landscape ? H : W) * (landscape ? 0.038 : story ? 0.048 : 0.042), (listBox.height / Math.max(bullets.length, 1)) * 0.32),
   );
 
-  const heroH = landscape ? H * 0.94 : H * 0.58;
+  const heroH = Math.min(landscape ? H * 0.94 : H * 0.58, (W * (landscape ? 0.4 : 0.46)) / ar);
   const heroW = heroH * ar;
   const heroBox: Box = {
-    left: subjectSide === "left" ? -heroW * 0.12 : W - heroW * 0.88,
+    left: subjectSide === "left" ? -heroW * (landscape ? 0.12 : 0.22) : W - heroW * (landscape ? 0.88 : 0.78),
     top: H - heroH,
     width: heroW,
     height: heroH,

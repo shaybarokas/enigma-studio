@@ -35,7 +35,17 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
     t ? fitText({ text: t, withinWidth: textBox.width, fontFamily: head, fontWeight: 900 }).fontSize : Infinity;
   const headSize = Math.min(fit(line1), fit(line2), wide ? H * 0.2 : W * 0.2);
 
-  const heroH = wide ? H * 0.98 : H * (story ? 0.6 : format === "square" ? 0.56 : 0.64);
+  const subSize = Math.round((wide ? H : W) * (wide ? 0.045 : 0.052));
+  // Tall: the hero fills what the text leaves, so the head never covers the hook or the pills.
+  const textBottom =
+    textBox.top +
+    headSize * 1.02 * (line2 ? 2 : 1) +
+    headSize * 0.28 +
+    subSize * 1.25 * 2 +
+    (copy.tags.length ? subSize * 1.8 : 0);
+  const heroH = wide
+    ? Math.min(H * 0.98, (W * 0.44) / ar)
+    : Math.min(H * (story ? 0.6 : format === "square" ? 0.56 : 0.64), H - textBottom - H * 0.015, (W * 0.86) / ar);
   const heroBox: Box = wide
     ? {
         left: subjectSide === "left" ? W * 0.03 : W - W * 0.03 - heroH * ar,
@@ -52,7 +62,6 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
   const l2 = enter(12);
   const subIn = enter(22);
 
-  const subSize = Math.round((wide ? H : W) * (wide ? 0.045 : 0.052));
 
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
