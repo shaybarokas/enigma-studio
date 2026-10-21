@@ -25,12 +25,17 @@ export type Word = { text: string; start: number; end: number };
 
 /** Speaks one line; returns the stored mp3, its length and each word's timing (seconds). */
 export async function speak(text: string, voice: VoiceKey, path: string): Promise<{ url: string; seconds: number; words: Word[] }> {
-  const res = await fetch(`${API}/text-to-speech/${VOICES[voice].id}/with-timestamps?output_format=mp3_44100_128`, {
-    method: "POST",
-    headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY!, "Content-Type": "application/json" },
-    body: JSON.stringify({ text, model_id: "eleven_v3", language_code: "he" }),
-  });
-  if (!res.ok) throw new Error(`tts ${res.status}: ${await res.text()}`);
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    res = await fetch(`${API}/text-to-speech/${VOICES[voice].id}/with-timestamps?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY!, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, model_id: "eleven_v3", language_code: "he" }),
+    });
+    if (res.status !== 409 && res.status !== 429) break; // busy: wait and retry
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+  }
+  if (!res?.ok) throw new Error(`tts ${res?.status}: ${await res?.text()}`);
   const d = (await res.json()) as {
     audio_base64: string;
     alignment: { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] };
