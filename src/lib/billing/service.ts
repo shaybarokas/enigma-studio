@@ -71,6 +71,13 @@ export async function completeOrder(t: ParsedTransaction): Promise<string> {
     return "error";
   }
   if (data !== "ok" && data !== "already" && data !== "no_token") console.error("[billing] paid but not completed", t.orderId, t.transactionUid, data);
+  // The IPN lookup (return page) carries no invoice: fetch the one PayPlus issued for the payment.
+  if (data === "ok" && !t.invoiceUrl) {
+    const docs = await transactionDocuments(t.transactionUid);
+    const url = docs[0]?.original_doc_url ?? docs[0]?.copy_doc_url;
+    if (url) await createAdminClient().from("orders").update({ invoice_url: url }).eq("id", t.orderId);
+    else console.error("[billing] no invoice found for payment", t.orderId, t.transactionUid);
+  }
   return data as string;
 }
 
