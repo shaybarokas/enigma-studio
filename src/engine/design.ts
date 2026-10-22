@@ -79,6 +79,7 @@ export const ELEMENT_NAMES: Record<string, string> = {
   headline: "הכותרת",
   cta: "כפתור ההנעה",
   bullets: "הרשימה",
+  tags: "התגיות",
   prop0: "אביזר 1",
   prop1: "אביזר 2",
   prop2: "אביזר 3",

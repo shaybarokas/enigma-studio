@@ -105,8 +105,11 @@ const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
   );
 };
 
+// Covers whose main text sits where the captions run lose it in the opening scene.
+const COVER_HIDE: Partial<Record<TemplateId, string[]>> = { "split-editorial": ["headline"] };
+
 function SceneVisual({ scene, design, cover }: { scene: Scene; design: DesignProps; cover: TemplateId }) {
-  const d = withHidden(design, HIDE_FOR_CAPTIONS[scene.type] ?? []);
+  const d = withHidden(design, [...(HIDE_FOR_CAPTIONS[scene.type] ?? []), ...(scene.type === "cover" ? (COVER_HIDE[cover] ?? []) : [])]);
   switch (scene.type) {
     case "cover": {
       const C = TEMPLATES[cover].component;

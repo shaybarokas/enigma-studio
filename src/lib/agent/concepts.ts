@@ -39,15 +39,16 @@ House style, learned from ENIGMA's best course covers:
 - A scene from the field's world behind (skyline at dusk for real estate, a code wall for developers), graded so the person and the type pop.
 - Each course has its own palette; never default to purple.
 
-The three directions must differ in template and feeling (e.g. one cinematic and premium, one bold-typographic, one bright and playful), and each must fit the brief's tone and audience.
+The three directions must differ in template and feeling (e.g. one cinematic and premium, one bold-typographic, one bright and playful), and each must fit the brief's tone and audience. There are more cover templates than directions: choose the three that suit this business best, not the first three on the list.
 
 Rules for each field:
 - templateId: one of the cover templates below; use each template at most once across the three directions.
-- palette: bg is the darkest/base tone (for studio-props it is a saturated studio colour, e.g. #3f8f45 green, #2f6fd6 blue); ink must read on bg (contrast ≥ 7:1); accent is the single highlight colour and must read on bg (≥ 3:1); muted is a softer ink.
+- palette: bg is the darkest/base tone (for studio-props and bold-repeat it is a saturated colour, e.g. #3f8f45 green, #2f6fd6 blue, #ff5a36 coral; for arch-luxe it may be a soft light tone such as #efe6da or a deep one); ink must read on bg (contrast ≥ 7:1); accent is the single highlight colour and must read on bg (≥ 3:1); muted is a softer ink.
 - Fonts: displayFont for the Latin wordmark (Playfair Display = premium serif, Anton/Bebas Neue = bold condensed); headlineFont and bodyFont must support Hebrew (Heebo, Rubik, Secular One, Suez One, Frank Ruhl Libre).
 - Copy is Hebrew (except an English wordmark), short, specific, in the audience's words. headline: the pain or a bold claim, ≤ 7 words, split with "|" before the part to colour. subtitle: the promise, ≤ 9 words. kicker: 2–4 words. bullets: 3–5 concrete outcomes, each ≤ 7 words. cta: 2–4 words.
 - Never invent facts: no numbers, results, testimonials or credentials that are not in the brief.
-- backgroundPrompt (English): a cinematic photographic scene from the field's world, NO people, NO text or logos, with calm negative space on the ${"text side"} (opposite subjectSide), lighting and colour matching the palette, "35mm, shallow depth, film grain". For studio-props: a clean seamless studio backdrop in the bg colour.
+- backgroundPrompt (English): a cinematic photographic scene from the field's world, NO people, NO text or logos, with calm negative space on the ${"text side"} (opposite subjectSide), lighting and colour matching the palette, "35mm, shallow depth, film grain". For studio-props and bold-repeat: a clean seamless studio backdrop in the bg colour. For arch-luxe: a soft, airy interior or detail from the field's world (it shows through an arched window behind the lecturer). For split-editorial: an atmospheric scene from the field's world (it fills one panel behind the lecturer).
+- wordmark for bold-repeat: 1–3 short words that still read when repeated in huge rows; displayFont Anton or Bebas Neue.
 - propPrompts (English, studio-props: 2–3, others: 0): each ONE object, "glossy 3D render, soft studio lighting, isolated on a plain pure white background, product render", no text.
 - subjectSide: where the lecturer stands; text goes on the other side.
 
