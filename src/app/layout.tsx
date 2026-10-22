@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "סטודיו קריאייטיב עם AI: גרפיקות, מודעות וסרטונים מעוצבים להשקה שלך, בכמה דקות",
   openGraph: { type: "website", locale: "he_IL", siteName: "Enigma Studio", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
   twitter: { card: "summary_large_image" },
+  // The name under the owl when saved to an iPhone home screen.
+  appleWebApp: { title: "Enigma Studio", capable: true, statusBarStyle: "default" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
