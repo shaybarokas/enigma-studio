@@ -13,6 +13,7 @@ import { renderSandbox } from "../render/sandbox";
 import { createAdminClient } from "../supabase/admin";
 import { compose, speak, type VoiceKey } from "./audio";
 import { writeVideoScript } from "./script";
+import { prepareSpeech } from "./speech";
 
 // Shortest a scene may run, so the visual has time to land even when the line is short.
 const MIN_SECONDS: Record<Scene["type"], number> = {
@@ -45,11 +46,16 @@ export async function produceVideo(opts: {
 
     // One line at a time: ElevenLabs refuses parallel requests on a library voice it is still
     // attaching to the account (409), and the lines are short.
+    // Vowel points where the reading is ambiguous, when switched on (SPEECH_NIQQUD=1).
+    const spoken =
+      process.env.SPEECH_NIQQUD === "1"
+        ? await prepareSpeech(script.scenes.map((s) => s.voice))
+        : script.scenes.map((s) => s.voice);
     const voiced: Scene[] = [];
     for (const [i, s] of script.scenes.entries()) {
       voiced.push(
         await (async () => {
-          const v = await speak(s.voice, opts.voice, `${folder}/vo-${i}.mp3`);
+          const v = await speak(spoken[i], s.voice, opts.voice, `${folder}/vo-${i}.mp3`);
           const seconds = Math.max(MIN_SECONDS[s.type], v.seconds + 0.55);
           return {
             type: s.type,
