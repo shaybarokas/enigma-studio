@@ -46,9 +46,10 @@ export async function produceVideo(opts: {
 
     // One line at a time: ElevenLabs refuses parallel requests on a library voice it is still
     // attaching to the account (409), and the lines are short.
-    // Vowel points where the reading is ambiguous (switch off with SPEECH_NIQQUD=0).
+    // Vowel points where the reading is ambiguous, if switched on (SPEECH_NIQQUD=1). Off by
+    // default: v4 reads plain Hebrew well, and the script review already removes ambiguous words.
     const spoken =
-      process.env.SPEECH_NIQQUD !== "0"
+      process.env.SPEECH_NIQQUD === "1"
         ? await prepareSpeech(script.scenes.map((s) => s.voice))
         : script.scenes.map((s) => s.voice);
     const voiced: Scene[] = [];

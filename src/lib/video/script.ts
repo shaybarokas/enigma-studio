@@ -20,6 +20,7 @@ export type VideoScript = z.infer<typeof scriptSchema>;
 
 const SHAPES = {
   promo: `A promo is a movie trailer for the course: what it's about and who teaches it, so the viewer gets it in 20 seconds.
+House style (from ENIGMA's own promos): open with a line that reframes the field ("עיצוב שיער הוא לא רק דירוג או גוונים, זו אומנות ומדע שלם."), then the human truth behind it, then the reveal "מרכז ההכשרות של אניגמה מציג:" (only when enigmaCourse is true; otherwise present it in the business's own name) followed by the course name and lecturer, then what you'll master, and close with where it's available.
 Scenes, in this order: cover (name reveal) → hero (the lecturer, their authority) → bullets (what you'll be able to do) → cta (name the course and the action).
 Optionally a props scene after hero when the brand has objects from its field.`,
   marketing: `A marketing video sells: hook in the first 2 seconds, touch the pain, present the course as the solution, show what they get, call to action.
@@ -77,6 +78,7 @@ export async function writeVideoScript(kind: "promo" | "marketing", brief: Brief
     cta: design.copy.cta,
     price: design.copy.price ?? null,
     hasProps: design.assets.props.length > 0,
+    enigmaCourse: /enigmacourse\.com/.test(brief?.link ?? ""),
   };
   const script = await structured({
     schema: scriptSchema,

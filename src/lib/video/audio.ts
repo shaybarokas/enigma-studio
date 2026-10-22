@@ -6,6 +6,8 @@ import { stripNiqqud } from "./speech";
 
 const API = "https://api.elevenlabs.io/v1";
 const BUCKET = "kit-assets";
+// The model Shay uses in ElevenLabs' own studio; its Hebrew sounds native where v3 did not.
+const TTS_MODEL = process.env.TTS_MODEL ?? "eleven_v4";
 
 import { VOICES, type VoiceKey } from "./voices";
 export { VOICES, type VoiceKey } from "./voices";
@@ -34,7 +36,7 @@ async function elevenlabs(text: string, voiceId: string): Promise<{ audio: Buffe
     fetch(`${API}/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY!, "Content-Type": "application/json" },
-      body: JSON.stringify({ text, model_id: "eleven_v3", language_code: "he" }),
+      body: JSON.stringify({ text, model_id: TTS_MODEL, ...(TTS_MODEL === "eleven_v3" ? { language_code: "he" } : {}) }),
     }),
   );
   const d = (await res.json()) as {
