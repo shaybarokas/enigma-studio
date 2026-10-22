@@ -222,7 +222,7 @@ export const CtaButton: React.FC<{ text: string; font: string; size: number; col
 };
 
 /** Readable ink on a colour: dark or light, whichever contrasts more. */
-function luminance(hex: string) {
+export function luminance(hex: string) {
   const n = parseInt(hex.slice(1), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
     const s = c / 255;

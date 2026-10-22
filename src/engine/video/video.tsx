@@ -9,7 +9,7 @@ import type { TemplateId } from "../catalog";
 import type { DesignProps } from "../design";
 import { fontFamily, useFontsReady, type FontName } from "../fonts";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, MetalText, useEnter } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, MetalText, useEnter } from "../parts";
 import { TEMPLATES } from "../templates";
 import { Captions } from "./captions";
 import { Watermark } from "../watermark";
@@ -36,19 +36,30 @@ const HeroScene: React.FC<{ design: DesignProps }> = ({ design }) => {
   const w = W * 0.98;
   const h = s ? w / s.aspect : 0;
   const lightFrom = design.subjectSide === "left" ? "right" : "left";
+  const light = isLightBg(bg);
+  // The brand name sits in the story's safe top; the head starts below it, never over it.
+  const markTop = H * 0.13;
+  const markSize = W * 0.1;
+  const heroTop = Math.max(H - h * 0.92, markTop + markSize * 1.25);
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
       <AbsoluteFill style={{ transform: `scale(${push})` }}>
-        <Img src={design.assets.backgroundTall ?? design.assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.6) saturate(0.85)" }} />
+        <Img src={design.assets.backgroundTall ?? design.assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: light ? "saturate(0.9)" : "brightness(0.6) saturate(0.85)" }} />
       </AbsoluteFill>
-      <AbsoluteFill style={{ background: `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.4)} 40%, ${bg}${alpha(0.75)} 100%)` }} />
-      <div style={{ position: "absolute", top: H * 0.13, width: "100%", display: "flex", justifyContent: "center", direction: "ltr" }}>
-        <MetalText text={design.copy.wordmark.join(" ")} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.1} ink={ink} muted={muted} progress={enter(4)} />
+      <AbsoluteFill
+        style={{
+          background: light
+            ? `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.6)} 40%, ${bg}${alpha(0.85)} 100%)`
+            : `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.4)} 40%, ${bg}${alpha(0.75)} 100%)`,
+        }}
+      />
+      <div style={{ position: "absolute", top: markTop, width: "100%", display: "flex", justifyContent: "center", direction: "ltr" }}>
+        <MetalText text={design.copy.wordmark.join(" ")} font={fontFamily(design.brand.displayFont as FontName)} size={markSize} ink={ink} muted={light ? ink : muted} progress={enter(4)} />
       </div>
       {s && (
         <>
-          <Glow x={W / 2} y={H - h * 0.7} size={W * 1.2} color={accent} opacity={0.25} />
-          <Hero src={s.src} box={{ left: (W - w) / 2, top: H - h * 0.92, width: w, height: h }} bg={bg} accent={accent} lightFrom={lightFrom} progress={enter(0, 20)} />
+          <Glow x={W / 2} y={heroTop + h * 0.22} size={W * 1.2} color={accent} opacity={0.25} />
+          <Hero src={s.src} box={{ left: (W - w) / 2, top: heroTop, width: w, height: h }} bg={bg} accent={accent} lightFrom={lightFrom} progress={enter(0, 20)} />
         </>
       )}
       <AbsoluteFill style={{ background: `linear-gradient(to top, ${bg} 0%, transparent 30%)` }} />
@@ -64,16 +75,19 @@ const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
   const enter = useEnter();
   const { bg, ink, muted, accent } = design.brand.palette;
   const body = fontFamily(design.brand.bodyFont as FontName);
+  // A light palette's ink is dark: the scene is washed toward the background instead of darkened.
+  const light = isLightBg(bg);
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
       <AbsoluteFill>
-        <Img src={design.assets.backgroundTall ?? design.assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "blur(18px) brightness(0.45)" }} />
+        <Img src={design.assets.backgroundTall ?? design.assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: light ? "blur(18px)" : "blur(18px) brightness(0.45)" }} />
       </AbsoluteFill>
+      {light && <AbsoluteFill style={{ background: `${bg}${alpha(0.8)}` }} />}
       <Glow x={W / 2} y={H * 0.42} size={W * 1.3} color={accent} opacity={0.3} />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: H * 0.03, padding: W * 0.08, textAlign: "center" }}>
         <div style={{ direction: "ltr" }}>
           {design.copy.wordmark.map((l, i) => (
-            <MetalText key={i} text={l} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.16} ink={ink} muted={muted} progress={enter(2 + i * 4)} />
+            <MetalText key={i} text={l} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.16} ink={ink} muted={light ? ink : muted} progress={enter(2 + i * 4)} />
           ))}
         </div>
         <div style={{ fontFamily: body, fontWeight: 700, fontSize: W * 0.055, color: ink, opacity: enter(14), lineHeight: 1.25, textWrap: "balance" }}>
@@ -123,7 +137,6 @@ const PRESENTATIONS = [fade(), slide({ direction: "from-bottom" }), fade(), slid
 
 const Video: React.FC<VideoProps> = ({ design, cover, scenes, music, captions }) => {
   const { durationInFrames, fps } = useVideoConfig();
-  const ink = design.brand.palette.ink;
   const accent = design.brand.palette.accent;
   const capFont = fontFamily(design.brand.headlineFont as FontName);
   return (
@@ -133,7 +146,7 @@ const Video: React.FC<VideoProps> = ({ design, cover, scenes, music, captions })
           const seq = (
             <TransitionSeries.Sequence key={`s${i}`} durationInFrames={scene.durationInFrames}>
               <SceneVisual scene={scene} design={design} cover={cover as TemplateId} />
-              {captions && CAPTIONED.has(scene.type) && <Captions scene={scene} font={capFont} accent={accent} ink={ink} />}
+              {captions && CAPTIONED.has(scene.type) && <Captions scene={scene} font={capFont} accent={accent} />}
               {scene.audio && <Audio src={scene.audio} />}
             </TransitionSeries.Sequence>
           );

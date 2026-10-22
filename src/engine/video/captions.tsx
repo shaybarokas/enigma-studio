@@ -2,6 +2,7 @@
 // popping in on the beat of the narration, with the key word in the brand's accent colour.
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { alpha } from "../fx";
+import { inkOn, luminance } from "../parts";
 import type { Scene } from "./schema";
 
 type Chunk = { words: Scene["words"]; start: number; end: number };
@@ -25,7 +26,10 @@ function chunk(words: Scene["words"]): Chunk[] {
 
 const clean = (s: string) => s.replace(/[.,!?:;…"״׳']/g, "");
 
-export const Captions: React.FC<{ scene: Scene; font: string; accent: string; ink: string }> = ({ scene, font, accent, ink }) => {
+// Captions sit on whatever the scene shows (a face, an apron, a light or a dark palette), so they
+// are always white with a dark outline. Key words take the accent; a dark accent would vanish in the
+// outline, so it becomes a highlight behind the word instead.
+export const Captions: React.FC<{ scene: Scene; font: string; accent: string }> = ({ scene, font, accent }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const t = frame / fps;
@@ -37,6 +41,7 @@ export const Captions: React.FC<{ scene: Scene; font: string; accent: string; in
   const pop = spring({ frame: local, fps, config: { damping: 14, stiffness: 220, mass: 0.6 } });
   const emphasis = new Set(scene.emphasis.map(clean));
   const size = Math.round(width * 0.085);
+  const brightAccent = luminance(accent) > 0.22;
 
   return (
     <div
@@ -59,7 +64,9 @@ export const Captions: React.FC<{ scene: Scene; font: string; accent: string; in
           fontSize: size,
           lineHeight: 1.12,
           textAlign: "center",
-          color: ink,
+          color: "#ffffff",
+          WebkitTextStroke: `${Math.max(2, size * 0.07)}px #000000${alpha(0.85)}`,
+          paintOrder: "stroke fill",
           textShadow: `0 ${size * 0.06}px ${size * 0.3}px #000000${alpha(0.85)}, 0 0 ${size * 0.08}px #000000${alpha(0.9)}`,
           textWrap: "balance",
         }}
@@ -67,8 +74,13 @@ export const Captions: React.FC<{ scene: Scene; font: string; accent: string; in
         {c.words.map((w, k) => {
           const spoken = t >= w.start - 0.03;
           const hot = emphasis.has(clean(w.text));
+          const style: React.CSSProperties = !hot
+            ? {}
+            : brightAccent
+              ? { color: accent }
+              : { color: inkOn(accent), background: accent, WebkitTextStroke: 0, textShadow: "none", borderRadius: size * 0.18, padding: `0 ${size * 0.16}px`, boxDecorationBreak: "clone" };
           return (
-            <span key={k} style={{ color: hot ? accent : ink, opacity: spoken ? 1 : 0.55 }}>
+            <span key={k} style={{ ...style, opacity: spoken ? 1 : 0.55 }}>
               {w.text}
               {k < c.words.length - 1 ? " " : ""}
             </span>
