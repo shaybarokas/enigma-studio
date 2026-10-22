@@ -95,14 +95,14 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
     const w = img.aspect >= 1 ? size : size * img.aspect;
     const h = img.aspect >= 1 ? size / img.aspect : size;
     // Near props pass in front of everything, so they keep off the text: a prop that would cover the
-    // promise or the wordmark slides out past that box's nearer edge, overlapping it by a fifth at most.
+    // promise or the wordmark slides out past that box's nearer edge, barely touching it.
     let top = H * y - h / 2;
     if (near) {
       for (const b of [subBox, markText]) {
         const left = W * x - w / 2;
         const hits = left < b.left + b.width && left + w > b.left && top < b.top + b.height && top + h > b.top;
         if (!hits) continue;
-        top = top + h / 2 > b.top + b.height / 2 ? Math.max(top, b.top + b.height - h * 0.2) : Math.min(top, b.top - h * 0.8);
+        top = top + h / 2 > b.top + b.height / 2 ? Math.max(top, b.top + b.height - h * 0.06) : Math.min(top, b.top - h * 0.94);
       }
     }
     return (
