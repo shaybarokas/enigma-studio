@@ -8,8 +8,11 @@ const heebo = Heebo({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL ?? "https://enigma-studios.co"),
   title: "Enigma Studio",
   description: "סטודיו קריאייטיב עם AI: גרפיקות, מודעות וסרטונים מעוצבים להשקה שלך, בכמה דקות",
+  openGraph: { type: "website", locale: "he_IL", siteName: "Enigma Studio", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

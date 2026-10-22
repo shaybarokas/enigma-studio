@@ -4,7 +4,7 @@ import { SITE } from "@/lib/site";
 // Shared frame for the legal documents: readable width, numbered sections, contact line.
 export function LegalPage({ title, intro, children }: { title: string; intro: ReactNode; children: ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-14 md:px-8">
+    <article className="mx-auto w-full max-w-3xl flex-1 px-4 py-14 md:px-8">
       <p className="text-sm font-semibold text-brand" dir="ltr">
         {SITE.name}
       </p>
@@ -18,6 +18,6 @@ export function LegalPage({ title, intro, children }: { title: string; intro: Re
           {SITE.contactEmail}
         </a>
       </p>
-    </main>
+    </article>
   );
 }

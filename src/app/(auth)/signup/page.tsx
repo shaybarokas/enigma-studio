@@ -12,6 +12,17 @@ export default function SignupPage() {
       subtitle="כמה דקות של שיחה עם הסוכן, וגרפיקות וסרטונים מוכנים."
       footer={
         <>
+          <span className="mb-3 block text-xs">
+            ההרשמה מהווה הסכמה ל
+            <Link href="/terms" className="font-semibold underline">
+              תנאי השימוש
+            </Link>{" "}
+            ול
+            <Link href="/privacy" className="font-semibold underline">
+              מדיניות הפרטיות
+            </Link>
+            .
+          </span>
           כבר יש לך חשבון?{" "}
           <Link href="/login" className="font-bold text-brand">
             כניסה

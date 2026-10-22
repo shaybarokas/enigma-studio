@@ -38,9 +38,9 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
           </div>
         </div>
       </header>
-      <div id="main" className="flex flex-1 flex-col">
+      <main id="main" className="flex flex-1 flex-col">
         {children}
-      </div>
+      </main>
       <footer className="border-t border-border bg-surface">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
