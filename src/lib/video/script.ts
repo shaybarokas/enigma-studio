@@ -39,6 +39,34 @@ How the narration must sound:
 - musicPrompt: instrumental only, genre, mood and tempo that fit the tone (e.g. "cinematic dark hybrid trailer, slow build, deep pulses, 90 bpm, instrumental").
 Never mention internal method names or frameworks.`;
 
+const reviewSchema = z.object({
+  lines: z.array(z.object({ voice: z.string(), emphasis: z.array(z.string()), changed: z.boolean() })),
+});
+
+const REVIEW = `You are a Hebrew speech editor. Each line will be read aloud by a text-to-speech engine that sees Hebrew WITHOUT vowels and does not reliably obey niqqud. Your job: make sure every line can only be read one way, and sounds like natural spoken Israeli Hebrew.
+
+For each line:
+- Find any word whose unvowelled spelling has more than one common reading (e.g. ספר: sefer/sapar/sipper; מספר: mispar/mesaper; חלק, שמע, בקר, עבר, דבר, כתב, ספרים, מלא/מילא…) or a form people stumble on (rare inflections, long construct chains, archaic or literary words, ambiguous verb forms).
+- If there is one, rewrite the line with everyday words that can only be read one way (ספר → מעצב שיער / בעל מספרה; מספר → כמה / סיפר), keeping the meaning, tone and length. Otherwise return the line unchanged.
+- Never add facts. Keep numbers as words.
+- emphasis: 1–2 words that appear exactly in the final line.
+- changed: true if you rewrote it.`;
+
+/** A second pass over the narration: every line must have exactly one natural reading. */
+async function reviewForSpeech(scenes: VideoScript["scenes"]): Promise<VideoScript["scenes"]> {
+  const out = await structured({
+    schema: reviewSchema,
+    system: REVIEW,
+    effort: "high",
+    messages: [{ role: "user", content: JSON.stringify({ lines: scenes.map((s) => ({ voice: s.voice, emphasis: s.emphasis })) }) }],
+  });
+  return scenes.map((s, i) => {
+    const r = out.lines[i];
+    if (!r?.voice.trim()) return s;
+    return { ...s, voice: r.voice, emphasis: r.emphasis.filter((w) => r.voice.includes(w)) };
+  });
+}
+
 export async function writeVideoScript(kind: "promo" | "marketing", brief: Brief | null, design: DesignProps): Promise<VideoScript> {
   const context = {
     brief,
@@ -50,10 +78,11 @@ export async function writeVideoScript(kind: "promo" | "marketing", brief: Brief
     price: design.copy.price ?? null,
     hasProps: design.assets.props.length > 0,
   };
-  return structured({
+  const script = await structured({
     schema: scriptSchema,
     system: SYSTEM,
     effort: "medium",
     messages: [{ role: "user", content: `${SHAPES[kind]}\n\nהחומר:\n${JSON.stringify(context, null, 2)}` }],
   });
+  return { ...script, scenes: await reviewForSpeech(script.scenes) };
 }

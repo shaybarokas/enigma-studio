@@ -59,7 +59,7 @@ export function Videos({ kitId }: { kitId: string }) {
 
       <div className="space-y-3 rounded-3xl border border-border bg-surface p-5">
         <p className="text-sm font-bold">הקול של הסרטון</p>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5" role="radiogroup" aria-label="קריין">
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="קריין">
           {VOICE_KEYS.map((k) => (
             <button
               key={k}
