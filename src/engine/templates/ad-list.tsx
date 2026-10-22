@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, isLightBg, Logo, Placed, Scene, useEnter, type Box } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, Logo, logoSpace, Placed, Scene, useEnter, type Box } from "../parts";
 
 const Check: React.FC<{ size: number; color: string; ink: string }> = ({ size, color, ink }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" style={{ flex: "none" }}>
@@ -41,9 +41,14 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const stacked = !landscape && h2 !== "";
   const hSize = stacked ? Math.min(fit(h1), fit(h2), W * 0.12) : Math.min(fit(`${h1} ${h2}`.trim()), landscape ? H * 0.1 : W * 0.1);
 
-  const listTop = headBox.top + hSize * (stacked ? 2.5 : 1.5);
+  // The brand's logo opens the head (the call-to-action row has no room for it beside the price).
+  const logoH = hSize * 0.6;
+  const logoRoom = logoSpace(assets.logo, logoH, headBox.width * 0.4);
+  const listTop = headBox.top + logoRoom + hSize * (stacked ? 2.5 : 1.5);
   const ctaSize = Math.round((landscape ? H : W) * (story ? 0.05 : 0.042));
-  const listBox: Box = { left: colLeft, top: listTop, width: colW, height: safeBottom - listTop - ctaSize * 3.4 };
+  // Tall formats stack the price over the button (side by side they overflow the narrow column).
+  const ctaH = ctaSize * (landscape ? 3 : copy.price ? 4.4 : 3);
+  const listBox: Box = { left: colLeft, top: listTop, width: colW, height: safeBottom - listTop - ctaH - ctaSize * 0.4 };
   const itemSize = Math.round(
     Math.min((landscape ? H : W) * (landscape ? 0.038 : story ? 0.048 : 0.042), (listBox.height / Math.max(bullets.length, 1)) * 0.32),
   );
@@ -56,7 +61,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
     width: heroW,
     height: heroH,
   };
-  const ctaBox: Box = { left: colLeft, top: safeBottom - ctaSize * 3, width: colW, height: ctaSize * 3 };
+  const ctaBox: Box = { left: colLeft, top: safeBottom - ctaH, width: colW, height: ctaH };
 
   const headIn = enter(2);
   const heroIn = enter(8);
@@ -74,7 +79,8 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         </>
       )}
 
-      <Placed box={headBox} el="headline" t={o.headline} style={{ opacity: headIn, translate: `0 ${(1 - headIn) * 30}px`, textAlign: landscape ? "right" : "center", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
+      <Placed box={headBox} el="headline" t={o.headline} style={{ opacity: headIn, translate: `0 ${(1 - headIn) * 30}px`, textAlign: landscape ? "right" : "center", display: "flex", flexDirection: "column", justifyContent: "flex-start", alignItems: landscape ? "flex-start" : "center" }}>
+        <Logo logo={assets.logo} height={logoH} maxWidth={headBox.width * 0.4} bg={bg} t={o.logo} style={{ marginBottom: logoH * 0.4 }} />
         {stacked ? (
           <>
             <div style={{ fontFamily: head, fontWeight: 900, fontSize: hSize, lineHeight: 1.1, color: ink, whiteSpace: "nowrap" }}>{h1}</div>
@@ -114,14 +120,18 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         })}
       </Placed>
 
-      <Placed box={ctaBox} el="cta" t={o.cta} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ctaSize * 0.6 }}>
+      <Placed
+        box={ctaBox}
+        el="cta"
+        t={o.cta}
+        style={{ display: "flex", flexDirection: landscape ? "row" : "column-reverse", alignItems: "center", justifyContent: landscape ? "space-between" : "flex-start", gap: ctaSize * (landscape ? 0.6 : 0.25) }}
+      >
         <CtaButton text={copy.cta} font={body} size={ctaSize} color={accent} ink={inkOn(accent)} progress={ctaIn} />
         {copy.price && (
-          <div style={{ fontFamily: head, fontWeight: 900, fontSize: ctaSize * 1.7, color: ink, opacity: ctaIn, textShadow: `0 4px 20px #000000${alpha(0.6)}` }}>
+          <div style={{ fontFamily: head, fontWeight: 900, fontSize: ctaSize * (landscape ? 1.7 : 1.35), color: ink, opacity: ctaIn, whiteSpace: "nowrap", textShadow: `0 4px 20px #000000${alpha(0.6)}` }}>
             {copy.price}
           </div>
         )}
-        <Logo logo={assets.logo} height={ctaSize * 1.6} maxWidth={colW * 0.3} bg={bg} t={o.logo} progress={ctaIn} />
       </Placed>
 
       <Vignette strength={0.4} />
