@@ -230,6 +230,12 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
         </section>
       )}
 
+      <p className="text-center text-sm text-muted">
+        <a href="/reset" className="hover:text-text hover:underline">
+          שינוי סיסמה
+        </a>
+      </p>
+
       {paid && (
         <p className="text-center text-sm text-muted">
           {account.cancelAtPeriodEnd ? (

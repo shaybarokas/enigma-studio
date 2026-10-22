@@ -35,10 +35,11 @@ export function AuthForm({
       ))}
       <div aria-live="polite" className="min-h-6 text-sm">
         {state?.error && <p className="text-danger">{state.error}</p>}
+        {state?.done && <p className="font-semibold text-ok">{state.done}</p>}
       </div>
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || Boolean(state?.done)}
         className="rounded-full bg-brand px-6 py-3 font-bold text-white transition hover:bg-brand-strong disabled:opacity-60"
       >
         {pending ? "רגע..." : submitLabel}

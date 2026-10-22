@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { trySend } from "@/lib/email/send";
+import { appUrl, passwordChangedEmail, resetEmail, welcomeEmail } from "@/lib/email/templates";
 
-export type FormState = { error?: string } | undefined;
+export type FormState = { error?: string; done?: string } | undefined;
 
 const AUTH_ERRORS: Record<string, string> = {
   "Invalid login credentials": "האימייל או הסיסמה שגויים.",
@@ -49,10 +51,41 @@ export async function signUp(_: FormState, formData: FormData): Promise<FormStat
   });
   if (createError) return { error: translate(createError.message) };
 
+  await trySend({ to: email, ...welcomeEmail(fullName) }, "welcome");
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: translate(error.message) };
   redirect("/studio");
+}
+
+// The same answer whether or not the address has an account, so the form can't be used to
+// find out who signed up. The link carries a one-time token that /auth/confirm verifies.
+export async function requestReset(_: FormState, formData: FormData): Promise<FormState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "כתובת האימייל לא תקינה." };
+  const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "recovery", email });
+  if (!error && data.properties?.hashed_token) {
+    const url = appUrl(`/auth/confirm?type=recovery&token_hash=${encodeURIComponent(data.properties.hashed_token)}`);
+    await trySend({ to: email, ...resetEmail((data.user?.user_metadata?.full_name as string | undefined) ?? null, url) }, "reset");
+  } else if (error && !/not found/i.test(error.message)) console.error("[auth] reset link", error.message);
+  return { done: "אם יש חשבון עם האימייל הזה, שלחנו אליו קישור לבחירת סיסמה חדשה. כדאי לבדוק גם בתיקיית הספאם." };
+}
+
+export async function setNewPassword(_: FormState, formData: FormData): Promise<FormState> {
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) return { error: "הסיסמה צריכה להכיל לפחות 8 תווים." };
+  if (password !== String(formData.get("confirm") ?? "")) return { error: "שתי הסיסמאות לא זהות." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    if (/different from the old/i.test(error.message)) return { error: "זו הסיסמה הנוכחית. בחרו סיסמה אחרת." };
+    if (/session/i.test(error.message)) return { error: "הקישור פג. אפשר לבקש קישור חדש." };
+    return { error: translate(error.message) };
+  }
+  // Every other device signs out; this one stays in.
+  await supabase.auth.signOut({ scope: "others" });
+  if (data.user.email) await trySend({ to: data.user.email, ...passwordChangedEmail((data.user.user_metadata?.full_name as string | undefined) ?? null) }, "password-changed");
+  redirect("/studio?password=changed");
 }
 
 export async function signOut() {

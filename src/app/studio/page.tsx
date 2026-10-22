@@ -8,11 +8,26 @@ export const metadata = { title: "הערכות שלי | Enigma Studio" };
 
 const STATUS = { interview: "בשיחה עם הסוכן", concepts: "ממתין לבחירת כיוון", ready: "מוכן" } as const;
 
-export default function StudioHome() {
+export default function StudioHome({ searchParams }: PageProps<"/studio">) {
   return (
-    <Suspense fallback={<div className="flex flex-1 items-center justify-center p-20 text-muted">טוען…</div>}>
-      <Kits />
-    </Suspense>
+    <>
+      <Suspense>
+        <Notice searchParams={searchParams} />
+      </Suspense>
+      <Suspense fallback={<div className="flex flex-1 items-center justify-center p-20 text-muted">טוען…</div>}>
+        <Kits />
+      </Suspense>
+    </>
+  );
+}
+
+async function Notice({ searchParams }: { searchParams: PageProps<"/studio">["searchParams"] }) {
+  const { password } = await searchParams;
+  if (password !== "changed") return null;
+  return (
+    <p role="status" className="mx-auto mt-4 w-full max-w-6xl rounded-2xl bg-ok/10 p-3 text-center text-sm font-semibold text-ok">
+      הסיסמה החדשה נשמרה. שאר המכשירים נותקו מהחשבון.
+    </p>
   );
 }
 

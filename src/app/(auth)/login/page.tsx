@@ -28,6 +28,9 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
       subtitle="נכנסים וממשיכים לעבוד על הערכות שלכם."
       footer={
         <>
+          <Link href="/forgot" className="mb-3 block font-semibold text-muted hover:text-brand">
+            שכחתי סיסמה
+          </Link>
           אין לך חשבון?{" "}
           <Link href="/signup" className="font-bold text-brand">
             הרשמה בחינם

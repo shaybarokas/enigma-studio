@@ -1,7 +1,9 @@
 // Orders, payment confirmation and renewals. The database functions (complete_order,
 // renew_account, renewal_failed, downgrade_to_free) do the account changes atomically.
 import { createAdminClient } from "../supabase/admin";
-import { PACKS, PLANS, type Interval, type PaidPlan } from "../plans";
+import { PACKS, PLANS, ils, type Interval, type PaidPlan } from "../plans";
+import { trySend } from "../email/send";
+import { billingEmails } from "../email/templates";
 import { chargeToken, createTaxInvoice, generatePaymentLink, lookupPaymentRequest, transactionDocuments, txnSummary, type ParsedTransaction } from "./payplus";
 
 const UUID = /^[0-9a-f-]{36}$/;
@@ -9,6 +11,20 @@ const UUID = /^[0-9a-f-]{36}$/;
 export type Purchase = { kind: "subscribe"; plan: PaidPlan; interval: Interval } | { kind: "pack"; pack: string };
 
 export const planName = (plan: PaidPlan, interval: Interval | null) => `Enigma Studio · מסלול ${PLANS[plan].name}${interval === "year" ? " (שנתי)" : ""}`;
+/** The plan as the customer reads it in an email: "מסלול מקצועי (שנתי)". */
+const planLabel = (plan: PaidPlan, interval: Interval | null) => `מסלול ${PLANS[plan].name}${interval === "year" ? " (שנתי)" : ""}`;
+
+async function contact(userId: string) {
+  const { data } = await createAdminClient().auth.admin.getUserById(userId);
+  const email = data.user?.email ?? "";
+  return { email, name: (data.user?.user_metadata?.full_name as string | undefined) || null };
+}
+
+type BillingMail = keyof typeof billingEmails;
+async function notify(userId: string, kind: BillingMail, v: Omit<Parameters<(typeof billingEmails)[BillingMail]>[0], "name">) {
+  const c = await contact(userId);
+  if (c.email) await trySend({ to: c.email, ...billingEmails[kind]({ ...v, name: c.name }) }, `billing:${kind}`);
+}
 
 /** Creates the order and its PayPlus payment page; returns the link to send the customer to. */
 export async function checkout(user: { id: string; email: string; name: string }, p: Purchase, origin: string) {
@@ -52,10 +68,12 @@ export async function checkout(user: { id: string; email: string; name: string }
   return { ok: true as const, link: link.link };
 }
 
-/** A paid payment-page transaction (from the callback or the return page). Idempotent. */
+/** A paid payment-page transaction (from the callback or the return page). Idempotent: the
+ * database completes an order once, and only that call sends the confirmation email. */
 export async function completeOrder(t: ParsedTransaction): Promise<string> {
   if (!t.ok || !t.orderId || !t.transactionUid) return "not_paid";
-  const { data, error } = await createAdminClient().rpc("complete_order", {
+  const db = createAdminClient();
+  const { data, error } = await db.rpc("complete_order", {
     p_order: t.orderId,
     p_transaction: t.transactionUid,
     p_amount: t.amount,
@@ -71,14 +89,24 @@ export async function completeOrder(t: ParsedTransaction): Promise<string> {
     return "error";
   }
   if (data !== "ok" && data !== "already" && data !== "no_token") console.error("[billing] paid but not completed", t.orderId, t.transactionUid, data);
+  if (data !== "ok") return data as string;
+
   // The IPN lookup (return page) carries no invoice: fetch the one PayPlus issued for the payment.
-  if (data === "ok" && !t.invoiceUrl) {
+  if (!t.invoiceUrl) {
     const docs = await transactionDocuments(t.transactionUid);
     const url = docs[0]?.original_doc_url ?? docs[0]?.copy_doc_url;
-    if (url) await createAdminClient().from("orders").update({ invoice_url: url }).eq("id", t.orderId);
+    if (url) await db.from("orders").update({ invoice_url: url }).eq("id", t.orderId);
     else console.error("[billing] no invoice found for payment", t.orderId, t.transactionUid);
   }
-  return data as string;
+
+  const { data: o } = await db.from("orders").select("user_id, kind, plan, billing_interval, credits, amount").eq("id", t.orderId).single();
+  if (o?.kind === "subscribe") {
+    const { data: a } = await db.from("accounts").select("period_end").eq("user_id", o.user_id).single();
+    await notify(o.user_id, "subscribed", { plan: planLabel(o.plan, o.billing_interval), amount: ils(Number(o.amount)), date: a?.period_end, credits: PLANS[o.plan as PaidPlan].credits });
+  } else if (o?.kind === "pack") {
+    await notify(o.user_id, "pack", { plan: "", amount: ils(Number(o.amount)), credits: o.credits });
+  }
+  return "ok";
 }
 
 /** Confirms an order straight with PayPlus (the customer returned before the callback). Safe without
@@ -98,36 +126,49 @@ export async function settleOrder(orderId: string): Promise<"paid" | "pending" |
   return done === "ok" || done === "already" ? "paid" : "pending";
 }
 
-/** Daily: charge renewals, end cancelled plans. Each account is handled on its own. */
+/** Sent when the customer cancels in the studio. */
+export async function notifyCancelled(userId: string) {
+  const { data: a } = await createAdminClient().from("accounts").select("plan, billing_interval, period_end").eq("user_id", userId).single();
+  if (a && a.plan !== "free") await notify(userId, "cancelled", { plan: planLabel(a.plan, a.billing_interval), date: a.period_end });
+}
+
+type Action = "charge" | "expire" | "remind";
+
+/** Daily: reminders, renewals, ended plans. Each account is handled on its own. */
 export async function runBillingCron() {
-  const db = createAdminClient();
-  const { data: due, error } = await db.rpc("billing_due");
+  const { data: due, error } = await createAdminClient().rpc("billing_due");
   if (error) throw new Error(error.message);
   const results: Record<string, string> = {};
-  for (const row of (due ?? []) as { user_id: string; action: "charge" | "expire" }[]) {
+  for (const row of (due ?? []) as { user_id: string; action: Action }[]) {
     try {
-      results[row.user_id] = await renew(row.user_id, row.action);
+      results[`${row.user_id}:${row.action}`] = await handle(row.user_id, row.action);
     } catch (e) {
-      results[row.user_id] = `error: ${(e as Error).message}`;
-      console.error("[billing] cron item", row.user_id, (e as Error).message);
+      results[`${row.user_id}:${row.action}`] = `error: ${(e as Error).message}`;
+      console.error("[billing] cron item", row.user_id, row.action, (e as Error).message);
     }
   }
   return results;
 }
 
-async function renew(userId: string, action: "charge" | "expire") {
+async function handle(userId: string, action: Action) {
   const db = createAdminClient();
-  if (action === "expire") {
-    await db.rpc("downgrade_to_free", { p_user: userId });
-    return "ended";
-  }
   const { data: a } = await db.from("accounts").select("*").eq("user_id", userId).single();
-  const { data: u } = await db.auth.admin.getUserById(userId);
-  const email = u.user?.email ?? "";
-  const name = (u.user?.user_metadata?.full_name as string | undefined) ?? email;
-  const itemName = planName(a.plan, a.billing_interval);
+  const plan = planLabel(a.plan, a.billing_interval);
   const amount = Number(a.price_ils);
 
+  if (action === "remind") {
+    await notify(userId, "reminder", { plan, amount: ils(amount), date: a.period_end });
+    await db.from("accounts").update({ reminded_for: a.period_end }).eq("user_id", userId);
+    return "reminded";
+  }
+  if (action === "expire") {
+    await db.rpc("downgrade_to_free", { p_user: userId });
+    await notify(userId, "ended", { plan });
+    return "ended";
+  }
+
+  const { email, name } = await contact(userId);
+  const itemName = planName(a.plan, a.billing_interval);
   const res = await chargeToken({
     token: a.payplus_token,
     customerUid: a.payplus_customer_uid ?? "",
@@ -135,12 +176,13 @@ async function renew(userId: string, action: "charge" | "expire") {
     cashierUid: a.payplus_cashier_uid ?? "",
     amount,
     itemName,
-    customerName: name,
+    customerName: name ?? email,
     userId,
   });
   if (!res.ok) {
     console.error("[billing] renewal failed", userId, res.error);
     const { data } = await db.rpc("renewal_failed", { p_user: userId });
+    await notify(userId, data === "downgraded" ? "downgraded" : "failed", { plan, amount: ils(amount) });
     return data as string;
   }
   // Token charges don't always get an invoice automatically: check, and issue one if missing.
@@ -150,11 +192,13 @@ async function renew(userId: string, action: "charge" | "expire") {
     const docs = await transactionDocuments(res.transactionUid);
     invoiceUrl = docs[0]?.original_doc_url ?? docs[0]?.copy_doc_url ?? null;
     if (!invoiceUrl) {
-      const doc = await createTaxInvoice({ transactionUid: res.transactionUid, customerUid: a.payplus_customer_uid, customerName: name, email, amount, itemName, last4: a.card_last4 });
+      const doc = await createTaxInvoice({ transactionUid: res.transactionUid, customerUid: a.payplus_customer_uid, customerName: name ?? email, email, amount, itemName, last4: a.card_last4 });
       if (doc.ok) invoiceUrl = doc.url;
       else console.error("[billing] invoice missing: issue manually in Invoice+", res.transactionUid, doc.error);
     }
   }
   await db.rpc("renew_account", { p_user: userId, p_transaction: res.transactionUid, p_amount: amount, p_invoice: invoiceUrl });
+  const { data: after } = await db.from("accounts").select("period_end").eq("user_id", userId).single();
+  await notify(userId, "renewed", { plan, amount: ils(amount), date: after?.period_end });
   return "renewed";
 }
