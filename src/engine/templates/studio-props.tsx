@@ -1,11 +1,11 @@
 // "Studio with props": a bright studio backdrop, the lecturer, and 3D objects from the course's world
 // floating around them with depth of field. Derived from SWING & WIN, PREDICT & PROFIT, LOAN LOGIC.
-import { fitText } from "@remotion/layout-utils";
 import { AbsoluteFill, Img, useCurrentFrame, useVideoConfig } from "remotion";
 import type { DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain } from "../fx";
+import { fitLines } from "../fit";
 import { Hero, inkOn, Pill, Placed, useEnter, type Box } from "../parts";
 
 // Where props float, as fractions of the frame: x, y, size (of the shorter side), blur, depth.
@@ -49,14 +49,16 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
         height: H * 0.5,
       }
     : { left: W * 0.06, top: story ? H * (STORY_SAFE.top + 0.01) : H * 0.05, width: W * 0.88, height: H * 0.26 };
-  const longest = copy.wordmark.reduce((a, b) => (b.length > a.length ? b : a), "");
-  const markSize = Math.min(
-    fitText({ text: longest, withinWidth: markBox.width, fontFamily: display, fontWeight: 900 }).fontSize,
-    wide ? H * 0.22 : W * 0.26,
-  );
+  const markSize = Math.min(fitLines(copy.wordmark, markBox.width, display, { uppercase: true }), wide ? H * 0.22 : W * 0.26);
 
   // Height from the format, capped by width so a wide photo never swallows the wordmark.
-  const heroH = Math.min(wide ? H * 0.95 : H * (story ? 0.58 : 0.62), (W * (format === "landscape" ? 0.42 : wide ? 0.46 : 0.8)) / ar);
+  let heroH = Math.min(wide ? H * 0.95 : H * (story ? 0.58 : 0.62), (W * (format === "landscape" ? 0.42 : wide ? 0.46 : 0.8)) / ar);
+  // Where the wordmark and its tags really end (pills included), not the box they may use.
+  const tagsH = copy.tags.length ? markSize * (0.18 + 0.2 * 2.1) : 0;
+  const markText: Box = { ...markBox, height: copy.wordmark.length * markSize * 0.92 + tagsH };
+  // Tall formats stack the wordmark above the hero: the head starts below its real height, so a long
+  // name or a row of tags never ends up behind the face.
+  if (!wide) heroH = Math.min(heroH, H - (markText.top + markText.height + short * 0.015));
   const heroBox: Box = wide
     ? {
         left: subjectSide === "left" ? W * (format === "landscape" ? 0.12 : 0.02) : W - W * (format === "landscape" ? 0.1 : 0.02) - heroH * ar,
@@ -92,10 +94,21 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
     const spin = Math.sin((frame / fps) * 0.8 + i) * 6 + (i % 2 ? -14 : 12);
     const w = img.aspect >= 1 ? size : size * img.aspect;
     const h = img.aspect >= 1 ? size / img.aspect : size;
+    // Near props pass in front of everything, so they keep off the text: a prop that would cover the
+    // promise or the wordmark slides out past that box's nearer edge, overlapping it by a fifth at most.
+    let top = H * y - h / 2;
+    if (near) {
+      for (const b of [subBox, markText]) {
+        const left = W * x - w / 2;
+        const hits = left < b.left + b.width && left + w > b.left && top < b.top + b.height && top + h > b.top;
+        if (!hits) continue;
+        top = top + h / 2 > b.top + b.height / 2 ? Math.max(top, b.top + b.height - h * 0.2) : Math.min(top, b.top - h * 0.8);
+      }
+    }
     return (
       <Placed
         key={i}
-        box={{ left: W * x - w / 2, top: H * y - h / 2, width: w, height: h }}
+        box={{ left: W * x - w / 2, top, width: w, height: h }}
         el={`prop${i}`}
         t={o[`prop${i}`]}
         style={{ opacity: pIn, translate: `0 ${bob + (1 - pIn) * 60}px`, rotate: `${spin}deg`, scale: `${0.7 + 0.3 * pIn}` }}

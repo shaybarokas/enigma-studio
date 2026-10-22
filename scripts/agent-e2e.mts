@@ -12,7 +12,7 @@ import { conceptToDesign } from "../src/lib/agent/to-design";
 const [photo, outDir, answersFile] = process.argv.slice(2);
 const answers: string[] = JSON.parse(fs.readFileSync(answersFile, "utf8"));
 fs.mkdirSync(outDir, { recursive: true });
-const kitId = `e2e-${Date.now()}`;
+const kitId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const t0 = Date.now();
 const log = (m: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0)}s] ${m}`);
 

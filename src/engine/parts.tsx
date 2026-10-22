@@ -222,12 +222,19 @@ export const CtaButton: React.FC<{ text: string; font: string; size: number; col
 };
 
 /** Readable ink on a colour: dark or light, whichever contrasts more. */
-export function inkOn(hex: string): string {
+function luminance(hex: string) {
   const n = parseInt(hex.slice(1), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   });
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return lum > 0.4 ? "#0b0b12" : "#ffffff";
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
+
+export function inkOn(hex: string): string {
+  return luminance(hex) > 0.4 ? "#0b0b12" : "#ffffff";
+}
+
+/** A light palette (its ink is dark): scenes behind text get washed toward the background colour,
+ * not darkened, or dark ink would land on a dark photo. */
+export const isLightBg = (hex: string) => luminance(hex) > 0.3;

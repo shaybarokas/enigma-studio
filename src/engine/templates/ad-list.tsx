@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, Placed, Scene, useEnter, type Box } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, Placed, Scene, useEnter, type Box } from "../parts";
 
 const Check: React.FC<{ size: number; color: string; ink: string }> = ({ size, color, ink }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" style={{ flex: "none" }}>
@@ -22,6 +22,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const landscape = format === "landscape";
   const story = format === "story";
   const { bg, ink, accent } = brand.palette;
+  const light = isLightBg(bg);
   const head = fontFamily(brand.headlineFont as FontName);
   const body = fontFamily(brand.bodyFont as FontName);
   const ar = assets.subject?.aspect ?? 0.62;
@@ -63,7 +64,8 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
 
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
-      <Scene src={!landscape && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} grade={0.65} blur={10} brightness={0.5} />
+      <Scene src={!landscape && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} grade={0.65} blur={10} brightness={light ? 1 : 0.5} />
+      {light && <AbsoluteFill style={{ background: `${bg}${alpha(0.78)}` }} />}
 
       {assets.subject && (
         <>

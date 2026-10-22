@@ -13,7 +13,9 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
   const { width: W, height: H, durationInFrames } = useVideoConfig();
   const enter = useEnter();
   const format = formatFromSize(W, H);
-  const wide = format === "landscape"; // square stacks like the tall formats: the hook needs the full width
+  // Square sits side by side like landscape: stacked, the hook took the width and left a tiny hero.
+  const wide = format === "landscape" || format === "square";
+  const square = format === "square";
   const story = format === "story";
   const { bg, ink, muted, accent } = brand.palette;
   const head = fontFamily(brand.headlineFont as FontName);
@@ -23,19 +25,23 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
   const lightFrom = subjectSide === "left" ? "right" : "left";
 
   // Text column: beside the hero when wide, above it when tall.
+  // In the square the column ends where the hero's box begins (plus a little shoulder), so a wide
+  // photo (arms, props in hand) narrows the text instead of covering it.
+  const squareHeroW = Math.min(H * 0.86 * ar, W * 0.52);
+  const squareTextW = Math.max(W * 0.4, Math.min(W * 0.58, W - squareHeroW * 0.92 - W * 0.06));
   const textBox: Box = wide
     ? {
-        left: subjectSide === "left" ? W * 0.44 : W * 0.05,
-        top: H * 0.1,
-        width: W * 0.51,
-        height: H * 0.8,
+        left: subjectSide === "left" ? (square ? W * 0.95 - squareTextW : W * 0.44) : W * 0.05,
+        top: H * (square ? 0.08 : 0.1),
+        width: square ? squareTextW : W * 0.51,
+        height: H * (square ? 0.84 : 0.8),
       }
     : { left: W * 0.06, top: story ? H * (STORY_SAFE.top + 0.01) : H * 0.06, width: W * 0.88, height: H * 0.42 };
   const fit = (t: string) =>
     t ? fitText({ text: t, withinWidth: textBox.width, fontFamily: head, fontWeight: 900 }).fontSize : Infinity;
-  const headSize = Math.min(fit(line1), fit(line2), wide ? H * 0.2 : W * 0.2);
+  const headSize = Math.min(fit(line1), fit(line2), square ? H * 0.15 : wide ? H * 0.2 : W * 0.2);
 
-  const subSize = Math.round((wide ? H : W) * (wide ? 0.045 : 0.052));
+  const subSize = Math.round((wide ? H : W) * (square ? 0.05 : wide ? 0.045 : 0.052));
   // Tall: the hero fills what the text leaves, so the head never covers the hook or the pills.
   const textBottom =
     textBox.top +
@@ -44,11 +50,11 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
     subSize * 1.25 * 2 +
     (copy.tags.length ? subSize * 1.8 : 0);
   const heroH = wide
-    ? Math.min(H * 0.98, (W * 0.44) / ar)
-    : Math.min(H * (story ? 0.6 : format === "square" ? 0.56 : 0.64), H - textBottom - H * 0.015, (W * 0.86) / ar);
+    ? Math.min(H * (square ? 0.86 : 0.98), (W * (square ? 0.52 : 0.44)) / ar)
+    : Math.min(H * (story ? 0.6 : 0.64), H - textBottom - H * 0.015, (W * 0.86) / ar);
   const heroBox: Box = wide
     ? {
-        left: subjectSide === "left" ? W * 0.03 : W - W * 0.03 - heroH * ar,
+        left: subjectSide === "left" ? W * (square ? 0 : 0.03) : W - W * (square ? 0 : 0.03) - heroH * ar,
         top: H - heroH,
         width: heroH * ar,
         height: heroH,

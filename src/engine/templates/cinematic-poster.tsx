@@ -1,11 +1,11 @@
 // "Cinematic poster": the lecturer as hero against a graded scene, a metallic brand wordmark and a
 // Hebrew promise. Derived from Enigma's course covers (BRICK BOSS, CODE TO CODE, LOAN LOGIC).
-import { fitText } from "@remotion/layout-utils";
 import { AbsoluteFill, interpolate, useVideoConfig } from "remotion";
 import type { DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE, type FormatId } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
+import { fitLines } from "../fit";
 import { Hero, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
 
 type Layout = {
@@ -35,11 +35,14 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
   }
   if (format === "square") {
     const h = Math.min(H * 0.8, (W * 0.5) / ar);
-    const textW = W * 0.56;
+    // Wordmark and promise share the column opposite the hero. It may reach a quarter into the
+    // hero's box (shoulder), never to the face, whatever the photo's width.
+    const sw = h * ar;
+    const textW = Math.min(W * 0.62, Math.max(W * 0.42, W * 0.92 - sw * 0.75));
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {
-      subject: mirror({ left: W * 0.02, top: H - h, width: h * ar, height: h }),
-      wordmark: { left: W * 0.06, top: H * 0.07, width: W * 0.88, height: H * 0.3, align: "end" },
+      subject: mirror({ left: W * 0.02, top: H - h, width: sw, height: h }),
+      wordmark: { left: textLeft, top: H * 0.07, width: textW, height: H * 0.4, align: "end" },
       subtitle: { left: textLeft, top: H * 0.6, width: textW, height: H * 0.32, align: "end" },
       sideFade: 0.7,
       bottomFade: 0.45,
@@ -83,11 +86,7 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
   const body = fontFamily(brand.bodyFont as FontName);
 
   // Wordmark size: the largest that fits the widest line, capped so it never shouts over the face.
-  const longest = copy.wordmark.reduce((a, b) => (b.length > a.length ? b : a), "");
-  const markSize = Math.min(
-    L.maxWordmark,
-    fitText({ text: longest, withinWidth: L.wordmark.width, fontFamily: display, fontWeight: 900 }).fontSize,
-  );
+  const markSize = Math.min(L.maxWordmark, fitLines(copy.wordmark, L.wordmark.width, display, { letterSpacing: "0.02em", uppercase: true }));
   if (tall) L.subject = fitTall(L, W, H, ar, copy.wordmark.length, markSize);
   const base = format === "landscape" ? H : W;
   const subtitleSize = Math.round(base * (format === "landscape" ? 0.052 : format === "story" ? 0.074 : 0.064));

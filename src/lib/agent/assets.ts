@@ -7,14 +7,23 @@ const BUCKET = "kit-assets";
 
 type Image = { src: string; aspect: number };
 
+// fal caps concurrent requests per account (10), so several kits generating at once get 429s.
+// Those, and passing server errors, are waited out with backoff and jitter instead of failing the kit.
 async function fal<T>(model: string, input: Record<string, unknown>): Promise<T> {
-  const res = await fetch(`https://fal.run/${model}`, {
-    method: "POST",
-    headers: { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error(`fal ${model}: ${res.status} ${await res.text()}`);
-  return res.json() as Promise<T>;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`https://fal.run/${model}`, {
+      method: "POST",
+      headers: { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (res.ok) return res.json() as Promise<T>;
+    const body = await res.text();
+    if ((res.status === 429 || res.status >= 500) && attempt < 8) {
+      await new Promise((r) => setTimeout(r, Math.min(20_000, 1500 * 2 ** attempt) * (0.6 + Math.random() * 0.8)));
+      continue;
+    }
+    throw new Error(`fal ${model}: ${res.status} ${body}`);
+  }
 }
 
 async function download(url: string): Promise<Buffer> {

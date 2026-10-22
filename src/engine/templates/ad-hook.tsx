@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
 
 export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
   const { width: W, height: H } = useVideoConfig();
@@ -15,6 +15,7 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const landscape = format === "landscape";
   const story = format === "story";
   const { bg, ink, muted, accent } = brand.palette;
+  const light = isLightBg(bg);
   const head = fontFamily(brand.headlineFont as FontName);
   const body = fontFamily(brand.bodyFont as FontName);
   const display = fontFamily(brand.displayFont as FontName);
@@ -31,7 +32,14 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const fit = (t: string) => (t ? fitText({ text: t, withinWidth: textBox.width, fontFamily: head, fontWeight: 900 }).fontSize : Infinity);
   const qSize = Math.min(fit(q1), fit(q2), landscape ? H * 0.15 : W * 0.17);
 
-  const heroH = Math.min(landscape ? H * 0.96 : H * (format === "square" ? 0.52 : 0.6), (W * (landscape ? 0.42 : 0.55)) / ar);
+  const subSize = Math.round((landscape ? H : W) * (story ? 0.056 : 0.05));
+  // Stacked formats: the head starts below the question and its subtitle (two lines), never over them.
+  const textBottom = textBox.top + qSize * 1.05 * (q2 ? 2 : 1) + qSize * 0.3 + subSize * 1.3 * 2;
+  const heroH = Math.min(
+    landscape ? H * 0.96 : H * (format === "square" ? 0.52 : 0.6),
+    (W * (landscape ? 0.42 : 0.55)) / ar,
+    landscape ? Infinity : H - textBottom - H * 0.01,
+  );
   const heroW = heroH * ar;
   const heroBox: Box = landscape
     ? { left: subjectSide === "left" ? W * 0.05 : W - W * 0.05 - heroW, top: H - heroH, width: heroW, height: heroH }
@@ -52,12 +60,17 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const heroIn = enter(16);
   const subIn = enter(22);
   const ctaIn = enter(32);
-  const subSize = Math.round((landscape ? H : W) * (story ? 0.056 : 0.05));
 
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
-      <Scene src={!landscape && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} grade={0.6} blur={8} brightness={0.55} />
-      <AbsoluteFill style={{ background: `linear-gradient(to bottom, ${bg}${alpha(0.85)} 0%, ${bg}${alpha(0.4)} 45%, ${bg}${alpha(0.9)} 100%)` }} />
+      <Scene src={!landscape && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} grade={0.6} blur={8} brightness={light ? 1 : 0.55} />
+      <AbsoluteFill
+        style={{
+          background: light
+            ? `linear-gradient(to bottom, ${bg}${alpha(0.92)} 0%, ${bg}${alpha(0.72)} 45%, ${bg}${alpha(0.95)} 100%)`
+            : `linear-gradient(to bottom, ${bg}${alpha(0.85)} 0%, ${bg}${alpha(0.4)} 45%, ${bg}${alpha(0.9)} 100%)`,
+        }}
+      />
 
       <Placed box={textBox} el="headline" t={o.headline} style={{ display: "flex", flexDirection: "column", justifyContent: landscape ? "center" : "flex-start", alignItems: landscape ? "flex-start" : "center", textAlign: landscape ? "right" : "center" }}>
         <div style={{ fontFamily: head, fontWeight: 900, fontSize: qSize, lineHeight: 1.05, color: ink, opacity: qIn1, translate: `0 ${(1 - qIn1) * 40}px`, whiteSpace: "nowrap" }}>
@@ -95,7 +108,8 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
 
       <Placed box={ctaBox} el="cta" t={o.cta} style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", justifyContent: "flex-end", gap: ctaSize * 0.5 }}>
         <div style={{ direction: "ltr", opacity: ctaIn }}>
-          <MetalText text={copy.wordmark.join(" ")} font={display} size={ctaSize * 0.9} ink={ink} muted={muted} progress={ctaIn} />
+          {/* The metal sheen reads on dark grounds only; on a light palette the brand line is solid ink. */}
+          <MetalText text={copy.wordmark.join(" ")} font={display} size={ctaSize * (light ? 1.1 : 0.9)} ink={ink} muted={light ? ink : muted} progress={ctaIn} />
         </div>
         <CtaButton text={copy.cta} font={body} size={ctaSize} color={accent} ink={inkOn(accent)} progress={ctaIn} />
       </Placed>
