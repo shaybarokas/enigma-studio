@@ -19,7 +19,7 @@ type Props = {
   uploading: boolean;
   onGenerate: () => void;
   onUpload: (files: File[], role?: MediaRole) => void;
-  onEditMedia: (mediaId: string, change: { role: MediaRole } | "remove") => void;
+  onEditMedia: (mediaId: string, change: { role: MediaRole } | { primary: true } | "remove") => void;
   onChoose: (i: number) => void;
   onReopenConcepts: () => void;
   onDesignChange: (d: DesignProps) => void;
@@ -112,6 +112,11 @@ function MaterialsCard({ kit, uploading, onUpload, onEdit }: { kit: Kit; uploadi
   const input = useRef<HTMLInputElement>(null);
   const media = kit.media ?? [];
   const colors = kit.brief?.brandColors ?? [];
+  // The image of its role the designs use: the one marked primary, else the latest.
+  const inUse = (m: (typeof media)[number]) => {
+    const same = media.filter((x) => x.role === m.role && x.cut);
+    return (same.find((x) => x.primary) ?? same.at(-1))?.id === m.id;
+  };
   return (
     <div className="space-y-4 rounded-3xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -174,9 +179,19 @@ function MaterialsCard({ kit, uploading, onUpload, onEdit }: { kit: Kit; uploadi
                 <p className="line-clamp-2 text-xs text-muted" title={m.note}>
                   {m.note}
                 </p>
-                <button onClick={() => onEdit(m.id, "remove")} disabled={uploading} className="text-xs font-semibold text-muted hover:text-danger">
-                  הסרה
-                </button>
+                <div className="flex items-center justify-between gap-2">
+                  {(m.role === "lecturer" || m.role === "logo") && media.filter((x) => x.role === m.role).length > 1 &&
+                    (inUse(m) ? (
+                      <span className="text-xs font-bold text-brand">★ בשימוש</span>
+                    ) : (
+                      <button onClick={() => onEdit(m.id, { primary: true })} disabled={uploading} className="text-xs font-bold text-brand hover:underline">
+                        להשתמש בזו
+                      </button>
+                    ))}
+                  <button onClick={() => onEdit(m.id, "remove")} disabled={uploading} className="text-xs font-semibold text-muted hover:text-danger">
+                    הסרה
+                  </button>
+                </div>
               </div>
             </li>
           ))}

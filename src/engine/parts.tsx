@@ -225,17 +225,20 @@ export const CtaButton: React.FC<{ text: string; font: string; size: number; col
  * lands on a face). A logo of the same tone as the ground sits on a contrasting plate. Its size is
  * capped by both height and width, so a long horizontal logo stays in its column. */
 export const Logo: React.FC<{
-  logo?: { src: string; aspect: number; tone?: "light" | "dark" };
+  logo?: { src: string; aspect: number; tone?: "light" | "dark"; alt?: { src: string; aspect: number; tone?: "light" | "dark" } };
   height: number;
   maxWidth: number;
   bg: string;
   t?: Partial<Transform>;
   progress?: number;
   style?: React.CSSProperties;
-}> = ({ logo, height, maxWidth, bg, t, progress = 1, style }) => {
-  if (!logo || t?.hidden) return null;
-  const h = Math.min(height, maxWidth / logo.aspect);
+}> = ({ logo: given, height, maxWidth, bg, t, progress = 1, style }) => {
+  if (!given || t?.hidden) return null;
   const groundLight = isLightBg(bg);
+  // Two versions (light and dark): the one that contrasts with the ground, no plate needed.
+  const clash = (l: { tone?: "light" | "dark" }) => Boolean(l.tone) && (l.tone === "light") === groundLight;
+  const logo = clash(given) && given.alt && !clash(given.alt) ? given.alt : given;
+  const h = Math.min(height, maxWidth / logo.aspect);
   const plate = logo.tone && (logo.tone === "light") === groundLight ? (groundLight ? `#0b0b12${alpha(0.88)}` : `#ffffff${alpha(0.94)}`) : undefined;
   const pad = plate ? h * 0.22 : 0;
   return (

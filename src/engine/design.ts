@@ -23,7 +23,11 @@ export const assetsSchema = z.object({
   backgroundTall: z.string().optional(), // tall scene for 3:4 and story
   subject: imageSchema.optional(), // lecturer cut-out, cropped tight
   props: z.array(imageSchema).max(6).default([]), // cut-out objects from the course's world
-  logo: imageSchema.extend({ tone: z.enum(["light", "dark"]).optional() }).optional(), // the brand's own mark, background removed
+  // The brand's own mark (background removed). `alt` is a second version in the other tone (e.g. a
+  // white logo beside a black one): whichever reads on the ground is used.
+  logo: imageSchema
+    .extend({ tone: z.enum(["light", "dark"]).optional(), alt: imageSchema.extend({ tone: z.enum(["light", "dark"]).optional() }).optional() })
+    .optional(),
 });
 export type Assets = z.infer<typeof assetsSchema>;
 

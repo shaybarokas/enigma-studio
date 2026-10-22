@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { emptyBrief, type Brief } from "@/lib/agent/brief";
 import { historyFrom, interviewTurn } from "@/lib/agent/interview";
 import type { Media } from "@/lib/agent/media";
+import { applyMedia, makePrimary } from "@/lib/agent/kit-media";
+import type { KitConcept } from "@/lib/kits";
 import { findLinks, linkText } from "@/lib/agent/link-text";
 import { generateScene } from "@/lib/agent/assets";
 import { applyEdit, planEdit } from "@/lib/agent/edit";
@@ -22,7 +24,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
 
   const { supabase, user } = await getUserAndClient();
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
-  const { data: kit } = await supabase.from("kits").select("messages, brief, status, design, media").eq("id", id).maybeSingle();
+  const { data: kit } = await supabase.from("kits").select("messages, brief, status, design, media, concepts, subject").eq("id", id).maybeSingle();
   if (!kit) return NextResponse.json({ error: "הערכה לא נמצאה" }, { status: 404 });
 
   const messages = [...(kit.messages as ChatMessage[]), { role: "user", text: message } as ChatMessage];
@@ -70,11 +72,15 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
     const turn = await interviewTurn(history, (kit.brief as Brief | null) ?? emptyBrief, (kit.media as Media[] | null) ?? []);
     const reply: ChatMessage = { role: "assistant", text: turn.reply, quickReplies: turn.quickReplies };
     const title = turn.brief.title ?? undefined;
+    // The user picked which lecturer photo leads: it goes into every design.
+    const media = (kit.media as Media[] | null) ?? [];
+    const chosen = turn.heroPhoto ? media.filter((m) => m.role === "lecturer")[turn.heroPhoto - 1] : undefined;
+    const applied = chosen ? applyMedia({ media: makePrimary(media, chosen.id), concepts: kit.concepts as KitConcept[] | null, design: kit.design as DesignProps | null, brief: turn.brief, subject: kit.subject }) : null;
     await supabase
       .from("kits")
-      .update({ messages: [...messages, reply], brief: turn.brief, ...(title ? { title } : {}) })
+      .update({ messages: [...messages, reply], brief: turn.brief, ...(title ? { title } : {}), ...(applied ? { media: applied.media, subject: applied.subject, concepts: applied.concepts, design: applied.design } : {}) })
       .eq("id", id);
-    return NextResponse.json({ reply, brief: turn.brief, ready: turn.ready, title });
+    return NextResponse.json({ reply, brief: turn.brief, ready: turn.ready, title, ...(applied ? { media: applied.media, subject: applied.subject, concepts: applied.concepts, design: applied.design } : {}) });
   } catch (e) {
     console.error("[chat]", e);
     return NextResponse.json({ error: "הסוכן לא הצליח לענות כרגע. נסו שוב." }, { status: 502 });

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { DesignProps } from "@/engine/design";
 import { emptyBrief, type Brief } from "@/lib/agent/brief";
 import { historyFrom, interviewTurn } from "@/lib/agent/interview";
-import { applyMedia } from "@/lib/agent/kit-media";
+import { applyMedia, makePrimary } from "@/lib/agent/kit-media";
 import { analyzeImage, MEDIA_ROLES, prepareMedia, ROLE_NAMES, storeOriginal, type Media, type MediaRole } from "@/lib/agent/media";
 import { alertOwner } from "@/lib/alert";
 import { getUserAndClient, type ChatMessage, type KitConcept } from "@/lib/kits";
@@ -93,6 +93,9 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/media
       reply = { role: "assistant", text: turn.reply, quickReplies: turn.quickReplies };
       brief = { ...turn.brief, brandColors: [...new Set([...(applied.brief?.brandColors ?? []), ...turn.brief.brandColors])].slice(0, 6) };
       ready = turn.ready;
+      const lecturers = applied.media.filter((m) => m.role === "lecturer");
+      const chosen = turn.heroPhoto ? lecturers[turn.heroPhoto - 1] : undefined;
+      if (chosen) Object.assign(applied, applyMedia({ ...kit, media: makePrimary(applied.media, chosen.id) }, before));
     } catch (e) {
       console.error("[media-chat]", e);
       reply = { role: "assistant", text: `קיבלתי ${added.length === 1 ? "את התמונה" : `${added.length} תמונות`}: ${added.map((m) => ROLE_NAMES[m.role]).join(", ")}. בואו נמשיך.` };
@@ -112,8 +115,14 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/kits/[id]/medi
   const loaded = await load(id);
   if ("error" in loaded) return loaded.error;
   const { supabase, user, kit } = loaded;
-  const { mediaId, role } = (await req.json()) as { mediaId?: string; role?: MediaRole };
+  const { mediaId, role, primary } = (await req.json()) as { mediaId?: string; role?: MediaRole; primary?: boolean };
   const target = kit.media.find((m) => m.id === mediaId);
+  // "Use this one": the primary lecturer (or logo) of the kit, no re-processing needed.
+  if (target && primary) {
+    const applied = applyMedia({ ...kit, media: makePrimary(kit.media, target.id) }, kit.media);
+    await supabase.from("kits").update(applied).eq("id", id);
+    return NextResponse.json(applied);
+  }
   if (!target || !role || !MEDIA_ROLES.includes(role)) return NextResponse.json({ error: "לא נמצא" }, { status: 400 });
   try {
     const redone = await prepareMedia({ ...target, role }, `${user.id}/${id}`);

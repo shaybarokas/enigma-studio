@@ -20,6 +20,7 @@ export type Media = {
   text?: string | null; // words written in a logo
   cut?: Image; // the prepared asset: cut-out lecturer/product, logo without its background
   tone?: "light" | "dark"; // a logo's own brightness, so it is never set on a ground of the same tone
+  primary?: boolean; // the one chosen (in the chat or the materials card) when there are several of a role
 };
 
 const analysisSchema = z.object({

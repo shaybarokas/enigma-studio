@@ -5,8 +5,16 @@ import type { KitConcept } from "../kits";
 import type { Brief } from "./brief";
 import { brandColors, type Media } from "./media";
 
+/** The image used for a role: the one marked primary, else the latest. */
 export function latest(media: Media[], role: Media["role"]) {
-  return [...media].reverse().find((m) => m.role === role && m.cut);
+  const ready = media.filter((m) => m.role === role && m.cut);
+  return ready.find((m) => m.primary) ?? ready.at(-1);
+}
+
+/** Marks one image as the primary of its role (and no other of that role). */
+export function makePrimary(media: Media[], id: string): Media[] {
+  const role = media.find((m) => m.id === id)?.role;
+  return media.map((m) => (m.role === role ? { ...m, primary: m.id === id } : m));
 }
 
 /** Products the user gave, ready to stand in for AI props. */
@@ -15,12 +23,14 @@ export const productProps = (media: Media[]) => media.filter((m) => m.role === "
 function withMedia(design: DesignProps, media: Media[], aiProps: DesignProps["assets"]["props"]): DesignProps {
   const lecturer = latest(media, "lecturer");
   const logo = latest(media, "logo");
+  // A second logo in the other tone (white beside black) serves the grounds the first can't.
+  const alt = media.filter((m) => m.role === "logo" && m.cut && m.id !== logo?.id && m.tone && m.tone !== logo?.tone).at(-1);
   return {
     ...design,
     assets: {
       ...design.assets,
       subject: lecturer?.cut ?? design.assets.subject,
-      logo: logo?.cut ? { ...logo.cut, tone: logo.tone } : undefined,
+      logo: logo?.cut ? { ...logo.cut, tone: logo.tone, alt: alt?.cut ? { ...alt.cut, tone: alt.tone } : undefined } : undefined,
       props: [...productProps(media), ...aiProps].slice(0, 6),
     },
   };

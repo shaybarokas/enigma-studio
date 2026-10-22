@@ -12,6 +12,7 @@ const turnSchema = z.object({
   quickReplies: z.array(z.string()).describe("2–4 תשובות מוצעות קצרות שאפשר ללחוץ עליהן"),
   brief: briefSchema,
   ready: z.boolean().describe("true כשיש מספיק כדי לבנות קריאייטיב חזק"),
+  heroPhoto: z.number().nullable().describe("When there are several lecturer photos and the user said which one to use: its number as listed (המרצה #1, #2…). null otherwise."),
 });
 export type InterviewTurn = z.infer<typeof turnSchema>;
 
@@ -32,7 +33,8 @@ Images:
 - The user can upload images; you see them. Each is labelled with what it is (the lecturer, a logo, a product, a style reference). Use what you see: read the brand name and colours from a logo (fill brandName and brandColors), take style cues from references into visualNotes, and never ask for something an image already shows.
 - A logo will appear on every piece, and its colours lead the palette. A lecturer photo becomes the hero of the designs (background removed automatically). A product photo becomes a real 3D-looking prop.
 - If there is no lecturer photo or logo yet, ask once, naturally, whether they have them (and that they can upload several at once with the camera button). Don't insist.
-- When images arrive, acknowledge briefly and specifically what you took from them (e.g. "the logo's navy and gold will lead the palette"), then continue the interview.`;
+- When images arrive, acknowledge briefly and specifically what you took from them (e.g. "the logo's navy and gold will lead the palette"), then continue the interview.
+- With several lecturer photos, the one marked "בשימוש כראשית" is the hero. If the user picks another, set heroPhoto to its number. Two versions of a logo (light and dark) are both kept: each piece uses the one that reads on its background.`;
 
 /** The chat as Claude sees it: images as images, with what each one is; a pasted link's text added
  * to the last message. The greeting is ours, not part of the model's conversation. */
@@ -55,8 +57,17 @@ export function historyFrom(messages: ChatMessage[], context = ""): Anthropic.Be
 }
 
 /** The media the kit holds, as one line per image for the model. */
-export const mediaSummary = (media: Media[]) =>
-  media.length ? media.map((m) => `- ${ROLE_NAMES[m.role]}: ${m.note}${m.text ? ` (כתוב: "${m.text}")` : ""}${m.palette.length ? ` צבעים: ${m.palette.join(" ")}` : ""}`).join("\n") : "אין עדיין";
+export const mediaSummary = (media: Media[]) => {
+  if (!media.length) return "אין עדיין";
+  const seen: Record<string, number> = {};
+  const primary = (m: Media) => m.primary || (m.role === "lecturer" && !media.some((x) => x.role === "lecturer" && x.primary) && media.filter((x) => x.role === "lecturer").at(-1) === m);
+  return media
+    .map((m) => {
+      const n = (seen[m.role] = (seen[m.role] ?? 0) + 1);
+      return `- ${ROLE_NAMES[m.role]} #${n}${primary(m) ? " (בשימוש כראשית)" : ""}: ${m.note}${m.text ? ` (כתוב: "${m.text}")` : ""}${m.palette.length ? ` צבעים: ${m.palette.join(" ")}` : ""}`;
+    })
+    .join("\n");
+};
 
 export async function interviewTurn(history: Anthropic.Beta.BetaMessageParam[], brief: Brief, media: Media[] = []): Promise<InterviewTurn> {
   return structured({

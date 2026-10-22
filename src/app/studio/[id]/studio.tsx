@@ -45,6 +45,10 @@ export function Studio({ initial }: { initial: Kit }) {
         ready: d.ready || k.ready,
         title: d.title ?? k.title,
         design: d.design ?? k.design,
+        // A photo picked in the chat ("use the colour one") lands in the designs.
+        media: d.media ?? k.media,
+        subject: d.subject ?? k.subject,
+        concepts: d.concepts ?? k.concepts,
       }));
     } catch (e) {
       if (!(e instanceof Paywalled)) setError((e as Error).message);
@@ -82,14 +86,14 @@ export function Studio({ initial }: { initial: Kit }) {
   };
 
   // Corrections to what an image is, and removals, from the materials panel.
-  const editMedia = async (mediaId: string, change: { role: MediaRole } | "remove") => {
+  const editMedia = async (mediaId: string, change: { role: MediaRole } | { primary: true } | "remove") => {
     setError("");
     setUploading(true);
     try {
       const res = await fetch(`/api/kits/${kit.id}/media${change === "remove" ? `?mediaId=${mediaId}` : ""}`, {
         method: change === "remove" ? "DELETE" : "PATCH",
         headers: change === "remove" ? undefined : { "Content-Type": "application/json" },
-        body: change === "remove" ? undefined : JSON.stringify({ mediaId, role: change.role }),
+        body: change === "remove" ? undefined : JSON.stringify({ mediaId, ...change }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? "משהו השתבש");
@@ -172,7 +176,7 @@ export function Studio({ initial }: { initial: Kit }) {
           uploading={uploading}
           onGenerate={generate}
           onUpload={(files: File[], role?: MediaRole) => void sendMedia("", files, role)}
-          onEditMedia={(mediaId: string, change: { role: MediaRole } | "remove") => void editMedia(mediaId, change)}
+          onEditMedia={(mediaId: string, change: { role: MediaRole } | { primary: true } | "remove") => void editMedia(mediaId, change)}
           onChoose={choose}
           onReopenConcepts={reopenConcepts}
           onDesignChange={(design) => setKit((k) => ({ ...k, design }))}
