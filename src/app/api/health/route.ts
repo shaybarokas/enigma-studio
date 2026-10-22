@@ -25,7 +25,12 @@ export async function GET(request: NextRequest) {
       return res.status === 401 || res.status === 403 ? `HTTP ${res.status}` : true;
     }),
     probe("supabase", async () => !(await createAdminClient().from("accounts").select("user_id", { head: true, count: "exact" })).error),
-    probe("resend", async () => status(await fetch("https://api.resend.com/emails/00000000-0000-0000-0000-000000000000", { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY ?? ""}` } })).toString().includes("401") ? "HTTP 401" : true),
+    // Our Resend key may only send: it answers "restricted_api_key" to a read, which proves it valid.
+    probe("resend", async () => {
+      const res = await fetch("https://api.resend.com/emails/00000000-0000-0000-0000-000000000000", { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY ?? ""}` } });
+      const body = (await res.json().catch(() => ({}))) as { name?: string };
+      return res.ok || res.status === 404 || body.name === "restricted_api_key" ? true : `HTTP ${res.status} ${body.name ?? ""}`.trim();
+    }),
     probe("payplus", async () => Boolean(process.env.PAYPLUS_API_KEY && process.env.PAYPLUS_SECRET_KEY)),
   ]);
   const result = Object.fromEntries(checks);
