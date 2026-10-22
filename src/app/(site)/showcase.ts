@@ -13,6 +13,9 @@ export type ShowKit = {
   poster: string;
 };
 
+// Videos are heavy, so they live in storage rather than in the repo.
+const MEDIA = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/kit-assets/showcase`;
+
 const sizes = {
   landscape: { w: 16, h: 9, label: "תצוגה ומצגת · 16:9" },
   square: { w: 1, h: 1, label: "פיד · 1:1" },
@@ -39,7 +42,7 @@ function kit(id: string, field: string, business: string, brief: string, names: 
       item(id, "hook", "square", "מודעת הוק · 1:1"),
       item(id, "list", "story", "מודעת מה בקורס · 9:16"),
     ],
-    video: `/showcase/${id}-promo.mp4`,
+    video: `${MEDIA}/${id}-promo.mp4`,
     poster: `/showcase/${id}-promo.webp`,
   };
 }
