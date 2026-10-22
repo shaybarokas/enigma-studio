@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { DesignProps } from "@/engine/design";
 import { SCENE_TYPES } from "@/engine/video/schema";
 import { structured } from "../ai/claude";
+import { ambiguousWords } from "./homographs";
 import type { Brief } from "../agent/brief";
 
 const scriptSchema = z.object({
@@ -53,19 +54,39 @@ For each line:
 - emphasis: 1–2 words that appear exactly in the final line.
 - changed: true if you rewrote it.`;
 
-/** A second pass over the narration: every line must have exactly one natural reading. */
+/**
+ * A second pass over the narration: every line must have exactly one natural reading. A fixed list
+ * of ambiguous words is checked after the review; any line still using one is sent back with the
+ * words named, until none is left.
+ */
 async function reviewForSpeech(scenes: VideoScript["scenes"]): Promise<VideoScript["scenes"]> {
-  const out = await structured({
-    schema: reviewSchema,
-    system: REVIEW,
-    effort: "high",
-    messages: [{ role: "user", content: JSON.stringify({ lines: scenes.map((s) => ({ voice: s.voice, emphasis: s.emphasis })) }) }],
-  });
-  return scenes.map((s, i) => {
-    const r = out.lines[i];
-    if (!r?.voice.trim()) return s;
-    return { ...s, voice: r.voice, emphasis: r.emphasis.filter((w) => r.voice.includes(w)) };
-  });
+  let current = scenes;
+  for (let round = 0; round < 3; round++) {
+    const flagged = current.map((s) => ambiguousWords(s.voice));
+    if (round > 0 && flagged.every((f) => f.length === 0)) return current;
+    const out = await structured({
+      schema: reviewSchema,
+      system: REVIEW,
+      effort: "high",
+      messages: [
+        {
+          role: "user",
+          content: JSON.stringify({
+            lines: current.map((s, i) => ({ voice: s.voice, emphasis: s.emphasis, mustReplace: flagged[i] })),
+            note: "mustReplace: words the voice will misread. The rewritten line must not contain them in any form.",
+          }),
+        },
+      ],
+    });
+    current = current.map((s, i) => {
+      const r = out.lines[i];
+      if (!r?.voice.trim()) return s;
+      return { ...s, voice: r.voice, emphasis: r.emphasis.filter((w) => r.voice.includes(w)) };
+    });
+  }
+  const left = current.flatMap((s) => ambiguousWords(s.voice));
+  if (left.length) console.warn("[script] ambiguous words left:", left.join(", "));
+  return current;
 }
 
 export async function writeVideoScript(kind: "promo" | "marketing", brief: Brief | null, design: DesignProps): Promise<VideoScript> {
