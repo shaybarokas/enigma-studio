@@ -7,6 +7,7 @@ import { applyMedia } from "@/lib/agent/kit-media";
 import { analyzeImage, MEDIA_ROLES, prepareMedia, ROLE_NAMES, storeOriginal, type Media, type MediaRole } from "@/lib/agent/media";
 import { alertOwner } from "@/lib/alert";
 import { getUserAndClient, type ChatMessage, type KitConcept } from "@/lib/kits";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 300;
 
@@ -45,21 +46,27 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/media
   if ("error" in loaded) return loaded.error;
   const { supabase, user, kit } = loaded;
 
-  const form = await req.formData();
-  const files = form.getAll("images").filter((f): f is File => f instanceof File && f.type.startsWith("image/"));
-  const text = String(form.get("text") ?? "").trim().slice(0, 2000);
-  const forced = String(form.get("role") ?? "") as MediaRole;
-  if (!files.length) return NextResponse.json({ error: "צריך לבחור תמונה" }, { status: 400 });
-  if (files.length > MAX_FILES) return NextResponse.json({ error: `אפשר עד ${MAX_FILES} תמונות בכל פעם` }, { status: 400 });
-  if (files.some((f) => f.size > 20 * 1024 * 1024)) return NextResponse.json({ error: "תמונה גדולה מדי (עד 20MB)" }, { status: 400 });
+  // The images are already in storage (see ./uploads); only their paths come in.
+  const body = (await req.json()) as { paths?: string[]; text?: string; role?: string };
+  const prefix = `${user.id}/${id}/uploads/`;
+  const paths = (body.paths ?? []).filter((p) => p.startsWith(prefix) && !p.includes(".."));
+  const text = String(body.text ?? "").trim().slice(0, 2000);
+  const forced = String(body.role ?? "") as MediaRole;
+  if (!paths.length) return NextResponse.json({ error: "צריך לבחור תמונה" }, { status: 400 });
+  if (paths.length > MAX_FILES) return NextResponse.json({ error: `אפשר עד ${MAX_FILES} תמונות בכל פעם` }, { status: 400 });
+  const storage = createAdminClient().storage.from("kit-assets");
 
   const folder = `${user.id}/${id}`;
   let added: Media[];
   try {
     added = await Promise.all(
-      files.map(async (file) => {
+      paths.map(async (path) => {
         const mid = randomUUID().slice(0, 8);
-        const url = await storeOriginal(file, folder, mid);
+        const { data: blob, error } = await storage.download(path);
+        if (error || !blob) throw new Error(`upload missing: ${error?.message ?? path}`);
+        if (blob.size > 20 * 1024 * 1024) throw new Error("too large");
+        const url = await storeOriginal(Buffer.from(await blob.arrayBuffer()), folder, mid);
+        await storage.remove([path]); // the raw upload is no longer needed once normalised
         const seen = await analyzeImage(url, text);
         const role = MEDIA_ROLES.includes(forced) ? forced : seen.role;
         return prepareMedia({ id: mid, url, role, note: seen.note, palette: seen.palette, text: seen.text }, folder);

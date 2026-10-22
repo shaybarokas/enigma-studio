@@ -6,6 +6,7 @@ import { Chat } from "./chat";
 import { Canvas } from "./canvas";
 import { Paywalled, paywalled } from "@/components/account";
 import type { MediaRole } from "@/lib/agent/media-names";
+import { uploadKitImages } from "@/lib/upload-images";
 
 // The studio: the agent's chat on one side, the kit taking shape on the other.
 export function Studio({ initial }: { initial: Kit }) {
@@ -59,12 +60,9 @@ export function Studio({ initial }: { initial: Kit }) {
     setError("");
     setUploading(true);
     setSending(true);
-    const fd = new FormData();
-    images.forEach((f) => fd.append("images", f));
-    fd.append("text", text);
-    if (role) fd.append("role", role);
     try {
-      const d = await post("/media", fd, false);
+      const paths = await uploadKitImages(kit.id, images);
+      const d = await post("/media", JSON.stringify({ paths, text, role }));
       setKit((k) => ({
         ...k,
         media: d.media,
@@ -157,6 +155,7 @@ export function Studio({ initial }: { initial: Kit }) {
           hasConcepts={!!kit.concepts}
           generating={generating}
           onSend={send}
+          error={error}
           onGenerate={generate}
         />
       </aside>

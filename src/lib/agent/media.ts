@@ -49,8 +49,8 @@ export async function analyzeImage(url: string, hint: string): Promise<z.infer<t
 }
 
 /** Normalises an upload: rotated, at most 2400px, PNG when it has transparency (logos), else JPEG. */
-export async function storeOriginal(file: File, folder: string, id: string) {
-  const input = sharp(Buffer.from(await file.arrayBuffer())).rotate();
+export async function storeOriginal(data: Buffer, folder: string, id: string) {
+  const input = sharp(data).rotate();
   const meta = await input.metadata();
   const resized = input.resize(2400, 2400, { fit: "inside", withoutEnlargement: true });
   if (meta.hasAlpha) return storeUpload(`${folder}/media-${id}.png`, await resized.png().toBuffer(), "image/png");

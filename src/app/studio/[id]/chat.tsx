@@ -15,6 +15,7 @@ export function Chat({
   hasConcepts,
   generating,
   onSend,
+  error,
   onGenerate,
 }: {
   messages: ChatMessage[];
@@ -24,6 +25,7 @@ export function Chat({
   hasConcepts: boolean;
   generating: boolean;
   onSend: (text: string, images: File[]) => void;
+  error?: string;
   onGenerate: () => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -75,9 +77,15 @@ export function Chat({
             </div>
           </div>
         ))}
+        {error && !sending && (
+          <p role="alert" className="rounded-2xl bg-danger/10 p-3 text-sm font-semibold text-danger">
+            {error}
+          </p>
+        )}
         {sending && (
           <div className="flex justify-end">
-            <div className="flex gap-1 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-4" aria-label="הסוכן כותב">
+            <div className="flex items-center gap-1 rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-4" aria-label={uploading ? "מעבד את התמונות" : "הסוכן כותב"}>
+              {uploading && <span className="me-2 text-sm text-muted">מעבד את התמונות, כחצי דקה…</span>}
               {[0, 1, 2].map((d) => (
                 <span key={d} className="size-2 animate-bounce rounded-full bg-brand" style={{ animationDelay: `${d * 120}ms` }} />
               ))}
