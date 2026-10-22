@@ -221,6 +221,45 @@ export const CtaButton: React.FC<{ text: string; font: string; size: number; col
   );
 };
 
+/** The brand's own logo, inline in a template's text block (so it moves with the layout and never
+ * lands on a face). A logo of the same tone as the ground sits on a contrasting plate. Its size is
+ * capped by both height and width, so a long horizontal logo stays in its column. */
+export const Logo: React.FC<{
+  logo?: { src: string; aspect: number; tone?: "light" | "dark" };
+  height: number;
+  maxWidth: number;
+  bg: string;
+  t?: Partial<Transform>;
+  progress?: number;
+  style?: React.CSSProperties;
+}> = ({ logo, height, maxWidth, bg, t, progress = 1, style }) => {
+  if (!logo || t?.hidden) return null;
+  const h = Math.min(height, maxWidth / logo.aspect);
+  const groundLight = isLightBg(bg);
+  const plate = logo.tone && (logo.tone === "light") === groundLight ? (groundLight ? `#0b0b12${alpha(0.88)}` : `#ffffff${alpha(0.94)}`) : undefined;
+  const pad = plate ? h * 0.22 : 0;
+  return (
+    <div
+      data-el="logo"
+      style={{
+        display: "inline-flex",
+        alignSelf: "auto",
+        padding: pad,
+        borderRadius: h * 0.25,
+        background: plate,
+        opacity: progress,
+        transform: `translate(${t?.x ?? 0}px, ${t?.y ?? 0}px) scale(${t?.scale ?? 1}) rotate(${t?.rotate ?? 0}deg)`,
+        ...style,
+      }}
+    >
+      <Img src={logo.src} style={{ height: h, width: h * logo.aspect, objectFit: "contain", display: "block" }} />
+    </div>
+  );
+};
+
+/** Height a logo adds to a text block (with its gap), for templates that fit text to the space. */
+export const logoSpace = (logo: { aspect: number } | undefined, height: number, maxWidth: number) => (logo ? Math.min(height, maxWidth / logo.aspect) * 1.5 + height * 0.4 : 0);
+
 /** Readable ink on a colour: dark or light, whichever contrasts more. */
 export function luminance(hex: string) {
   const n = parseInt(hex.slice(1), 16);

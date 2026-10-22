@@ -9,7 +9,7 @@ import type { TemplateId } from "../catalog";
 import type { DesignProps } from "../design";
 import { fontFamily, useFontsReady, type FontName } from "../fonts";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, isLightBg, MetalText, useEnter } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, Logo, MetalText, useEnter } from "../parts";
 import { TEMPLATES } from "../templates";
 import { Captions } from "./captions";
 import { Watermark } from "../watermark";
@@ -85,6 +85,7 @@ const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
       {light && <AbsoluteFill style={{ background: `${bg}${alpha(0.8)}` }} />}
       <Glow x={W / 2} y={H * 0.42} size={W * 1.3} color={accent} opacity={0.3} />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: H * 0.03, padding: W * 0.08, textAlign: "center" }}>
+        <Logo logo={design.assets.logo} height={W * 0.14} maxWidth={W * 0.5} bg={bg} progress={enter(2)} />
         <div style={{ direction: "ltr" }}>
           {design.copy.wordmark.map((l, i) => (
             <MetalText key={i} text={l} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.16} ink={ink} muted={muted} tint={light ? ink : undefined} progress={enter(2 + i * 4)} />

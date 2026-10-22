@@ -5,6 +5,7 @@ import type { Kit, ChatMessage, KitConcept } from "@/lib/kits";
 import { Chat } from "./chat";
 import { Canvas } from "./canvas";
 import { Paywalled, paywalled } from "@/components/account";
+import type { MediaRole } from "@/lib/agent/media-names";
 
 // The studio: the agent's chat on one side, the kit taking shape on the other.
 export function Studio({ initial }: { initial: Kit }) {
@@ -27,7 +28,8 @@ export function Studio({ initial }: { initial: Kit }) {
     return data;
   };
 
-  const send = async (text: string) => {
+  const send = async (text: string, images: File[] = []) => {
+    if (images.length) return sendMedia(text, images);
     if (!text.trim() || sending) return;
     setError("");
     setSending(true);
@@ -51,21 +53,51 @@ export function Studio({ initial }: { initial: Kit }) {
     }
   };
 
-  const upload = async (file: File) => {
+  // Images (with an optional line of text): stored, recognised and put to work; the agent answers.
+  // `role` forces what they are (e.g. "replace the lecturer photo" from the brief panel).
+  const sendMedia = async (text: string, images: File[], role?: MediaRole) => {
     setError("");
     setUploading(true);
+    setSending(true);
     const fd = new FormData();
-    fd.append("photo", file);
+    images.forEach((f) => fd.append("images", f));
+    fd.append("text", text);
+    if (role) fd.append("role", role);
     try {
-      const d = await post("/photo", fd, false);
+      const d = await post("/media", fd, false);
       setKit((k) => ({
         ...k,
-        subject: d.subject,
-        concepts: k.concepts?.map((c) => ({ ...c, design: { ...c.design, assets: { ...c.design.assets, subject: d.subject } } })) ?? null,
-        design: k.design ? { ...k.design, assets: { ...k.design.assets, subject: d.subject } } : null,
+        media: d.media,
+        subject: d.subject ?? k.subject,
+        concepts: d.concepts ?? k.concepts,
+        design: d.design ?? k.design,
+        brief: d.brief ?? k.brief,
+        ready: d.ready || k.ready,
+        messages: [...k.messages, d.userMsg, d.reply],
       }));
     } catch (e) {
       if (!(e instanceof Paywalled)) setError((e as Error).message);
+    } finally {
+      setUploading(false);
+      setSending(false);
+    }
+  };
+
+  // Corrections to what an image is, and removals, from the materials panel.
+  const editMedia = async (mediaId: string, change: { role: MediaRole } | "remove") => {
+    setError("");
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/kits/${kit.id}/media${change === "remove" ? `?mediaId=${mediaId}` : ""}`, {
+        method: change === "remove" ? "DELETE" : "PATCH",
+        headers: change === "remove" ? undefined : { "Content-Type": "application/json" },
+        body: change === "remove" ? undefined : JSON.stringify({ mediaId, role: change.role }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? "משהו השתבש");
+      setKit((k) => ({ ...k, media: d.media, subject: d.subject, concepts: d.concepts ?? k.concepts, design: d.design ?? k.design, brief: d.brief ?? k.brief }));
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setUploading(false);
     }
@@ -125,7 +157,6 @@ export function Studio({ initial }: { initial: Kit }) {
           hasConcepts={!!kit.concepts}
           generating={generating}
           onSend={send}
-          onUpload={upload}
           onGenerate={generate}
         />
       </aside>
@@ -141,7 +172,8 @@ export function Studio({ initial }: { initial: Kit }) {
           generating={generating}
           uploading={uploading}
           onGenerate={generate}
-          onUpload={upload}
+          onUpload={(files: File[], role?: MediaRole) => void sendMedia("", files, role)}
+          onEditMedia={(mediaId: string, change: { role: MediaRole } | "remove") => void editMedia(mediaId, change)}
           onChoose={choose}
           onReopenConcepts={reopenConcepts}
           onDesignChange={(design) => setKit((k) => ({ ...k, design }))}

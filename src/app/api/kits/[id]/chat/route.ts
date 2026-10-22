@@ -1,7 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { emptyBrief, type Brief } from "@/lib/agent/brief";
-import { interviewTurn } from "@/lib/agent/interview";
+import { historyFrom, interviewTurn } from "@/lib/agent/interview";
+import type { Media } from "@/lib/agent/media";
 import { findLinks, linkText } from "@/lib/agent/link-text";
 import { generateScene } from "@/lib/agent/assets";
 import { applyEdit, planEdit } from "@/lib/agent/edit";
@@ -21,7 +22,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
 
   const { supabase, user } = await getUserAndClient();
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
-  const { data: kit } = await supabase.from("kits").select("messages, brief, status, design").eq("id", id).maybeSingle();
+  const { data: kit } = await supabase.from("kits").select("messages, brief, status, design, media").eq("id", id).maybeSingle();
   if (!kit) return NextResponse.json({ error: "הערכה לא נמצאה" }, { status: 404 });
 
   const messages = [...(kit.messages as ChatMessage[]), { role: "user", text: message } as ChatMessage];
@@ -33,12 +34,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
     .map((p) => `\n\n[תוכן הדף ${p.u}]\n${p.t}`)
     .join("");
 
-  const history: Anthropic.Beta.BetaMessageParam[] = messages
-    .slice(1) // the greeting is ours, not part of the model's conversation
-    .map((m, i, all) => ({
-      role: m.role,
-      content: i === all.length - 1 && context ? `${m.text}${context}` : m.text,
-    }));
+  const history: Anthropic.Beta.BetaMessageParam[] = historyFrom(messages, context);
 
   // Once the kit is designed, the chat edits it.
   if (kit.status === "ready" && kit.design) {
@@ -71,7 +67,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
   }
 
   try {
-    const turn = await interviewTurn(history, (kit.brief as Brief | null) ?? emptyBrief);
+    const turn = await interviewTurn(history, (kit.brief as Brief | null) ?? emptyBrief, (kit.media as Media[] | null) ?? []);
     const reply: ChatMessage = { role: "assistant", text: turn.reply, quickReplies: turn.quickReplies };
     const title = turn.brief.title ?? undefined;
     await supabase

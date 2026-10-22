@@ -7,7 +7,7 @@ import { fitLines } from "../fit";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain } from "../fx";
-import { Hero, inkOn, isLightBg, Pill, Placed, useEnter, type Box } from "../parts";
+import { Hero, inkOn, isLightBg, Logo, Pill, Placed, useEnter, type Box } from "../parts";
 
 export const BoldRepeat: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
   const frame = useCurrentFrame();
@@ -103,6 +103,7 @@ export const BoldRepeat: React.FC<DesignProps> = ({ brand, copy, assets, subject
 
       {/* Kicker and tags up top, as pills. */}
       <Placed box={kickerBox} el="tags" t={o.tags} style={{ display: "flex", gap: short * 0.015, justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap", opacity: kickIn }}>
+        <Logo logo={assets.logo} height={short * 0.05} maxWidth={W * 0.3} bg={bg} t={o.logo} style={{ alignSelf: "center" }} />
         {[copy.kicker, ...copy.tags].filter(Boolean).map((t, i) => (
           <Pill key={t} text={t} font={body} size={short * 0.03} color={i === 0 ? ink : accent} ink={inkOn(i === 0 ? ink : accent)} />
         ))}

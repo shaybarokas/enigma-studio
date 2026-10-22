@@ -23,7 +23,7 @@ export const assetsSchema = z.object({
   backgroundTall: z.string().optional(), // tall scene for 3:4 and story
   subject: imageSchema.optional(), // lecturer cut-out, cropped tight
   props: z.array(imageSchema).max(6).default([]), // cut-out objects from the course's world
-  logo: z.string().optional(),
+  logo: imageSchema.extend({ tone: z.enum(["light", "dark"]).optional() }).optional(), // the brand's own mark, background removed
 });
 export type Assets = z.infer<typeof assetsSchema>;
 
@@ -85,4 +85,5 @@ export const ELEMENT_NAMES: Record<string, string> = {
   prop2: "אביזר 3",
   prop3: "אביזר 4",
   prop4: "אביזר 5",
+  logo: "הלוגו",
 };

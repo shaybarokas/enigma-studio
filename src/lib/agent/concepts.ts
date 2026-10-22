@@ -5,6 +5,8 @@ import { CATALOG, COVER_TEMPLATE_IDS } from "@/engine/catalog";
 import { FONT_NAMES } from "@/engine/fonts-list";
 import { structured } from "../ai/claude";
 import type { Brief } from "./brief";
+import { mediaSummary } from "./interview";
+import type { Media } from "./media";
 
 const hex = z.string().describe("#rrggbb");
 const font = z.enum(FONT_NAMES);
@@ -55,14 +57,30 @@ Rules for each field:
 Cover templates:
 ${COVER_TEMPLATE_IDS.map((id) => `- ${id}: ${CATALOG[id].fits}`).join("\n")}
 
+The user's own material comes first:
+- brandColors (from their logo or their words) are the brand: build every palette from them (bg and accent from the brand colours, or one direction may use a neutral bg with the brand colour as accent). Never contradict an existing brand.
+- If there is a logo, it appears on every piece by itself: do not draw another logo; the wordmark may repeat the brand name the logo shows, or name the course.
+- Style references they uploaded show their taste: take mood, colour and typography cues from them, without copying.
+- Product photos they uploaded become real props (cut out automatically); for studio-props, propPrompts add at most 1–2 objects around them.
+
 Write "name" and "idea" in Hebrew. Never mention internal method names or frameworks.`;
 
-export async function createConcepts(brief: Brief): Promise<Concept[]> {
+export async function createConcepts(brief: Brief, media: Media[] = []): Promise<Concept[]> {
+  // The creative director sees the logo and the style references themselves, not only their notes.
+  const seen = media.filter((m) => m.role === "logo" || m.role === "reference").slice(-4);
   const out = await structured({
     schema: z.object({ concepts: z.array(conceptSchema) }),
     system: SYSTEM,
     effort: "high",
-    messages: [{ role: "user", content: `הבריף:\n${JSON.stringify(brief, null, 2)}\n\nצור שלושה כיוונים.` }],
+    messages: [
+      {
+        role: "user",
+        content: [
+          ...seen.map((m) => ({ type: "image" as const, source: { type: "url" as const, url: m.url } })),
+          { type: "text" as const, text: `הבריף:\n${JSON.stringify(brief, null, 2)}\n\nהחומרים שהמשתמש העלה:\n${mediaSummary(media)}\n\nצור שלושה כיוונים.` },
+        ],
+      },
+    ],
   });
   return out.concepts.slice(0, 3);
 }

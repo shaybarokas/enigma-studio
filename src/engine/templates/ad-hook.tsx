@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, isLightBg, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, Logo, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
 
 export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
   const { width: W, height: H } = useVideoConfig();
@@ -107,10 +107,15 @@ export const AdHook: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
       <AbsoluteFill style={{ background: `linear-gradient(to top, ${bg} 0%, transparent 18%)` }} />
 
       <Placed box={ctaBox} el="cta" t={o.cta} style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", justifyContent: "flex-end", gap: ctaSize * 0.5 }}>
-        <div style={{ direction: "ltr", opacity: ctaIn }}>
-          {/* The metal sheen reads on dark grounds only; on a light palette the brand line is solid ink. */}
-          <MetalText text={copy.wordmark.join(" ")} font={display} size={ctaSize * (light ? 1.1 : 0.9)} ink={ink} muted={muted} tint={light ? ink : undefined} progress={ctaIn} />
-        </div>
+        {/* The brand above the button: its own logo when there is one, else the wordmark. The metal
+            sheen reads on dark grounds only; on a light palette the brand line is solid ink. */}
+        {assets.logo ? (
+          <Logo logo={assets.logo} height={ctaSize * 1.5} maxWidth={W * 0.32} bg={bg} t={o.logo} progress={ctaIn} />
+        ) : (
+          <div style={{ direction: "ltr", opacity: ctaIn }}>
+            <MetalText text={copy.wordmark.join(" ")} font={display} size={ctaSize * (light ? 1.1 : 0.9)} ink={ink} muted={muted} tint={light ? ink : undefined} progress={ctaIn} />
+          </div>
+        )}
         <CtaButton text={copy.cta} font={body} size={ctaSize} color={accent} ink={inkOn(accent)} progress={ctaIn} />
       </Placed>
 

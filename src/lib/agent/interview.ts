@@ -4,6 +4,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { structured } from "../ai/claude";
 import { briefSchema, type Brief } from "./brief";
+import { ROLE_NAMES, type Media } from "./media";
+import type { ChatMessage } from "../kits";
 
 const turnSchema = z.object({
   reply: z.string().describe("ההודעה למשתמש, בעברית"),
@@ -24,16 +26,46 @@ How you interview:
 - Never invent facts about the business: no made-up numbers, testimonials or credentials. Leave a field null until the user gives it.
 - Set ready=true once kind, title, audience, pain, promise and tone are known (price and visuals can stay open). When ready, tell them in one or two sentences what you understood and that you're moving on to three creative directions.
 - Keep it to about 5–8 questions in total. Respect their time.
-- Never mention internal method names or frameworks.`;
+- Never mention internal method names or frameworks.
 
-export async function interviewTurn(history: Anthropic.Beta.BetaMessageParam[], brief: Brief): Promise<InterviewTurn> {
+Images:
+- The user can upload images; you see them. Each is labelled with what it is (the lecturer, a logo, a product, a style reference). Use what you see: read the brand name and colours from a logo (fill brandName and brandColors), take style cues from references into visualNotes, and never ask for something an image already shows.
+- A logo will appear on every piece, and its colours lead the palette. A lecturer photo becomes the hero of the designs (background removed automatically). A product photo becomes a real 3D-looking prop.
+- If there is no lecturer photo or logo yet, ask once, naturally, whether they have them (and that they can upload several at once with the camera button). Don't insist.
+- When images arrive, acknowledge briefly and specifically what you took from them (e.g. "the logo's navy and gold will lead the palette"), then continue the interview.`;
+
+/** The chat as Claude sees it: images as images, with what each one is; a pasted link's text added
+ * to the last message. The greeting is ours, not part of the model's conversation. */
+export function historyFrom(messages: ChatMessage[], context = ""): Anthropic.Beta.BetaMessageParam[] {
+  const turns = messages.slice(1);
+  return turns.map((m, i) => {
+    const text = (m.text || (m.images?.length ? "(העליתי תמונות)" : "")) + (i === turns.length - 1 ? context : "");
+    if (m.role === "user" && m.images?.length) {
+      const labels = m.images.map((img, k) => `תמונה ${k + 1}: ${ROLE_NAMES[img.role]}`).join(" · ");
+      return {
+        role: "user" as const,
+        content: [
+          ...m.images.map((img) => ({ type: "image" as const, source: { type: "url" as const, url: img.url } })),
+          { type: "text" as const, text: `${text}\n[${labels}]` },
+        ],
+      };
+    }
+    return { role: m.role, content: text };
+  });
+}
+
+/** The media the kit holds, as one line per image for the model. */
+export const mediaSummary = (media: Media[]) =>
+  media.length ? media.map((m) => `- ${ROLE_NAMES[m.role]}: ${m.note}${m.text ? ` (כתוב: "${m.text}")` : ""}${m.palette.length ? ` צבעים: ${m.palette.join(" ")}` : ""}`).join("\n") : "אין עדיין";
+
+export async function interviewTurn(history: Anthropic.Beta.BetaMessageParam[], brief: Brief, media: Media[] = []): Promise<InterviewTurn> {
   return structured({
     schema: turnSchema,
     system: SYSTEM,
     effort: "medium",
     messages: [
       ...history,
-      { role: "user", content: `[מצב הבריף הנוכחי, לעדכון]\n${JSON.stringify(brief)}` },
+      { role: "user", content: `[מצב הבריף הנוכחי, לעדכון]\n${JSON.stringify(brief)}\n\n[התמונות שהמשתמש העלה]\n${mediaSummary(media)}` },
     ],
   });
 }

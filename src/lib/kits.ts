@@ -4,9 +4,11 @@ import { connection } from "next/server";
 import type { DesignProps } from "@/engine/design";
 import type { Brief } from "./agent/brief";
 import type { Concept } from "./agent/concepts";
+import type { Media, MediaRole } from "./agent/media";
 import { createClient } from "./supabase/server";
 
-export type ChatMessage = { role: "user" | "assistant"; text: string; quickReplies?: string[] };
+export type ChatImage = { url: string; role: MediaRole };
+export type ChatMessage = { role: "user" | "assistant"; text: string; quickReplies?: string[]; images?: ChatImage[] };
 export type KitConcept = { concept: Concept; design: DesignProps };
 export type Kit = {
   id: string;
@@ -19,6 +21,7 @@ export type Kit = {
   chosen: number | null;
   design: DesignProps | null;
   unlocked: boolean; // a gift kit pass opened every paid feature for this kit
+  media: Media[]; // the images the user gave the agent, sorted by what they are
   ready: boolean; // the interview has enough for concepts (derived, not stored)
   created_at: string;
   updated_at: string;

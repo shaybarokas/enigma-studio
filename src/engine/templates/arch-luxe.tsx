@@ -6,7 +6,7 @@ import { fitLines } from "../fit";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE, type FormatId } from "../formats";
 import { alpha, Grain } from "../fx";
-import { Hero, isLightBg, Placed, useEnter, type Box } from "../parts";
+import { Hero, isLightBg, Logo, logoSpace, Placed, useEnter, type Box } from "../parts";
 
 type Layout = { arch: Box; text: Box; align: "center" | "start" };
 
@@ -48,7 +48,8 @@ export const ArchLuxe: React.FC<DesignProps> = ({ brand, copy, assets, subjectSi
   const kickerSize = Math.round(base * (tall ? 0.03 : 0.028));
   const subSize = Math.round(base * (tall ? 0.05 : 0.044));
   // Kicker, rule, promise (two lines) and tags: what the column holds besides the wordmark.
-  const rest = kickerSize * 2 + kickerSize * 2.3 + subSize * 1.35 * 2 + (copy.tags.length ? kickerSize * 2 : 0);
+  const logoH = kickerSize * 2.4;
+  const rest = logoSpace(assets.logo, logoH, W * 0.3) + kickerSize * 2 + kickerSize * 2.3 + subSize * 1.35 * 2 + (copy.tags.length ? kickerSize * 2 : 0);
   const markFit = (width: number) => Math.min(fitLines(copy.wordmark, width, display, { letterSpacing: "0.04em", uppercase: true }), base * (tall ? 0.13 : 0.13));
   const L = layoutFor(format, W, H, subjectSide, rest + copy.wordmark.length * markFit(W * 0.84));
   // In the side column the wordmark also gives way to the height the promise needs.
@@ -115,6 +116,7 @@ export const ArchLuxe: React.FC<DesignProps> = ({ brand, copy, assets, subjectSi
         t={o.wordmark}
         style={{ display: "flex", flexDirection: "column", justifyContent: center ? "flex-start" : "center", alignItems: center ? "center" : "flex-start", textAlign: center ? "center" : "right" }}
       >
+        <Logo logo={assets.logo} height={logoH} maxWidth={Math.min(L.text.width * 0.5, W * 0.3)} bg={bg} t={o.logo} progress={markIn} style={{ marginBottom: logoH * 0.45 }} />
         <div style={{ fontFamily: body, fontWeight: 700, fontSize: kickerSize, letterSpacing: "0.06em", color: accent, opacity: markIn, marginBottom: kickerSize * 0.9 }}>{copy.kicker}</div>
         <div style={{ direction: "ltr", display: "flex", flexDirection: "column", alignItems: center ? "center" : "flex-end", opacity: markIn, translate: `0 ${(1 - markIn) * 24}px` }}>
           {copy.wordmark.map((line, i) => (

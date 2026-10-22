@@ -6,7 +6,7 @@ import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE, type FormatId } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
 import { fitLines } from "../fit";
-import { Hero, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
+import { Hero, Logo, logoSpace, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
 
 type Layout = {
   subject: Box;
@@ -66,8 +66,8 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
 }
 
 // Tall formats: the head tucks just under the wordmark (magazine-cover depth), never over its middle.
-function fitTall(L: Layout, W: number, H: number, ar: number, lines: number, markSize: number): Box {
-  const markBottom = L.wordmark.top + lines * markSize * 0.95;
+function fitTall(L: Layout, W: number, H: number, ar: number, lines: number, markSize: number, logoH = 0): Box {
+  const markBottom = L.wordmark.top + logoH + lines * markSize * 0.95;
   const top = Math.max(markBottom - markSize * 0.3, H * 0.24);
   // Big and close: the hero runs off the bottom edge (chest crop) instead of shrinking to fit.
   const w = Math.max(W * 0.86, (H - top) * ar);
@@ -87,7 +87,10 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
 
   // Wordmark size: the largest that fits the widest line, capped so it never shouts over the face.
   const markSize = Math.min(L.maxWordmark, fitLines(copy.wordmark, L.wordmark.width, display, { letterSpacing: "0.02em", uppercase: true }));
-  if (tall) L.subject = fitTall(L, W, H, ar, copy.wordmark.length, markSize);
+  // The brand's logo sits above the wordmark, a little over half its height.
+  const logoH = markSize * 0.55;
+  const logoRoom = logoSpace(assets.logo, logoH, L.wordmark.width * 0.5);
+  if (tall) L.subject = fitTall(L, W, H, ar, copy.wordmark.length, markSize, logoRoom);
   const base = format === "landscape" ? H : W;
   const subtitleSize = Math.round(base * (format === "landscape" ? 0.052 : format === "story" ? 0.074 : 0.064));
   const kickerSize = Math.round(subtitleSize * 0.6);
@@ -116,6 +119,7 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
         el="wordmark" t={o.wordmark}
         style={{ display: "flex", flexDirection: "column", alignItems: L.wordmark.align === "center" ? "center" : "flex-end", direction: "ltr" }}
       >
+        <Logo logo={assets.logo} height={logoH} maxWidth={L.wordmark.width * 0.5} bg={bg} t={o.logo} progress={markIn} style={{ marginBottom: logoH * 0.4 }} />
         {copy.wordmark.map((line, i) => (
           <MetalText key={i} text={line} font={display} size={markSize} ink={ink} muted={muted} progress={markIn} />
         ))}

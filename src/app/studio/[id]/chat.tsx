@@ -3,6 +3,9 @@
 import { COST } from "@/lib/plans";
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/kits";
+import { ROLE_NAMES } from "@/lib/agent/media-names";
+
+const MAX_IMAGES = 6;
 
 export function Chat({
   messages,
@@ -12,7 +15,6 @@ export function Chat({
   hasConcepts,
   generating,
   onSend,
-  onUpload,
   onGenerate,
 }: {
   messages: ChatMessage[];
@@ -21,11 +23,16 @@ export function Chat({
   ready: boolean;
   hasConcepts: boolean;
   generating: boolean;
-  onSend: (text: string) => void;
-  onUpload: (file: File) => void;
+  onSend: (text: string, images: File[]) => void;
   onGenerate: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  // Images waiting to go with the next message, with local previews.
+  const [pending, setPending] = useState<{ file: File; url: string }[]>([]);
+  const addFiles = (files: Iterable<File>) => {
+    const images = [...files].filter((f) => f.type.startsWith("image/"));
+    setPending((p) => [...p, ...images.map((file) => ({ file, url: URL.createObjectURL(file) }))].slice(0, MAX_IMAGES));
+  };
   const end = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const firstScroll = useRef(true);
@@ -36,9 +43,10 @@ export function Chat({
   }, [messages.length, sending]);
 
   const submit = (text: string) => {
-    if (!text.trim() || sending) return;
-    onSend(text.trim());
+    if ((!text.trim() && !pending.length) || sending || uploading) return;
+    onSend(text.trim(), pending.map((p) => p.file));
     setDraft("");
+    setPending([]);
   };
   const last = messages.at(-1);
 
@@ -52,6 +60,17 @@ export function Chat({
                 m.role === "user" ? "rounded-br-md bg-brand text-white" : "rounded-bl-md border border-border bg-surface"
               }`}
             >
+              {m.images && m.images.length > 0 && (
+                <div className={`flex flex-wrap gap-2 ${m.text ? "mb-2" : ""}`}>
+                  {m.images.map((img, k) => (
+                    <figure key={k} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- user uploads from storage */}
+                      <img src={img.url} alt={ROLE_NAMES[img.role]} className="size-20 rounded-xl bg-white/20 object-cover" />
+                      <figcaption className="absolute bottom-1 start-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white">{ROLE_NAMES[img.role]}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
               {m.text}
             </div>
           </div>
@@ -90,10 +109,34 @@ export function Chat({
         <div ref={end} />
       </div>
 
+      {pending.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-t border-border bg-bg px-3 pt-3" aria-label="תמונות שיישלחו">
+          {pending.map((p, i) => (
+            <div key={p.url} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
+              <img src={p.url} alt="" className="size-16 rounded-xl border border-border object-cover" />
+              <button
+                type="button"
+                onClick={() => setPending((all) => all.filter((_, k) => k !== i))}
+                aria-label="הסרת התמונה"
+                className="absolute -top-2 -start-2 flex size-6 items-center justify-center rounded-full bg-text text-xs font-bold text-bg"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <p className="self-center text-xs text-muted">הסוכן יזהה לבד מה כל תמונה: מרצה, לוגו, מוצר או השראה</p>
+        </div>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           submit(draft);
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          addFiles(e.dataTransfer.files);
         }}
         className="flex items-end gap-2 border-t border-border bg-bg p-3"
       >
@@ -101,19 +144,19 @@ export function Chat({
           ref={file}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onUpload(f);
+            if (e.target.files) addFiles(e.target.files);
             e.target.value = "";
           }}
         />
         <button
           type="button"
           onClick={() => file.current?.click()}
-          disabled={uploading}
-          title="העלאת תמונת מרצה"
-          aria-label="העלאת תמונת מרצה"
+          disabled={uploading || pending.length >= MAX_IMAGES}
+          title="העלאת תמונות: המרצה, לוגו, מוצר או השראה"
+          aria-label="העלאת תמונות"
           className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-xl text-muted transition hover:border-brand hover:text-brand disabled:opacity-50"
         >
           {uploading ? "…" : "📷"}
@@ -121,6 +164,13 @@ export function Chat({
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onPaste={(e) => {
+            const images = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+            if (images.length) {
+              e.preventDefault();
+              addFiles(images);
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -128,13 +178,13 @@ export function Chat({
             }
           }}
           rows={1}
-          placeholder="כתבו לסוכן, או הדביקו קישור…"
+          placeholder={pending.length ? "אפשר להוסיף מילה על התמונות…" : "כתבו לסוכן, הדביקו קישור או צרפו תמונות…"}
           aria-label="הודעה לסוכן"
           className="max-h-40 min-h-11 flex-1 resize-none rounded-2xl border border-border bg-surface px-4 py-2.5 text-[15px] outline-none transition focus:border-brand"
         />
         <button
           type="submit"
-          disabled={sending || !draft.trim()}
+          disabled={sending || uploading || (!draft.trim() && !pending.length)}
           aria-label="שליחה"
           className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-white transition hover:bg-brand-strong disabled:opacity-40"
         >

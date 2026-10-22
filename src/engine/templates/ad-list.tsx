@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, isLightBg, Placed, Scene, useEnter, type Box } from "../parts";
+import { CtaButton, Hero, inkOn, isLightBg, Logo, Placed, Scene, useEnter, type Box } from "../parts";
 
 const Check: React.FC<{ size: number; color: string; ink: string }> = ({ size, color, ink }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" style={{ flex: "none" }}>
@@ -121,6 +121,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
             {copy.price}
           </div>
         )}
+        <Logo logo={assets.logo} height={ctaSize * 1.6} maxWidth={colW * 0.3} bg={bg} t={o.logo} progress={ctaIn} />
       </Placed>
 
       <Vignette strength={0.4} />

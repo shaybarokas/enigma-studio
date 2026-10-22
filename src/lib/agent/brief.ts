@@ -19,6 +19,7 @@ export const briefSchema = z.object({
   cta: z.string().nullable(),
   link: z.string().nullable(),
   visualNotes: z.string().nullable().describe("צבעים, סגנונות שאוהבים או לא אוהבים, מותג קיים"),
+  brandColors: z.array(z.string()).describe("צבעי מותג קיימים (#rrggbb), מהלוגו או ממה שהמשתמש אמר"),
 });
 export type Brief = z.infer<typeof briefSchema>;
 
@@ -39,4 +40,5 @@ export const emptyBrief: Brief = {
   cta: null,
   link: null,
   visualNotes: null,
+  brandColors: [],
 };

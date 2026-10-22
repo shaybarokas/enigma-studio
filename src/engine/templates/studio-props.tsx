@@ -6,7 +6,7 @@ import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain } from "../fx";
 import { fitLines } from "../fit";
-import { Hero, inkOn, Pill, Placed, useEnter, type Box } from "../parts";
+import { Hero, inkOn, Logo, logoSpace, Pill, Placed, useEnter, type Box } from "../parts";
 
 // Where props float, as fractions of the frame: x, y, size (of the shorter side), blur, depth.
 // Near props are big and blurred (in front of the lens), far ones small and sharp.
@@ -55,7 +55,9 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
   let heroH = Math.min(wide ? H * 0.95 : H * (story ? 0.58 : 0.62), (W * (format === "landscape" ? 0.42 : wide ? 0.46 : 0.8)) / ar);
   // Where the wordmark and its tags really end (pills included), not the box they may use.
   const tagsH = copy.tags.length ? markSize * (0.18 + 0.2 * 2.1) : 0;
-  const markText: Box = { ...markBox, height: copy.wordmark.length * markSize * 0.92 + tagsH };
+  const logoH = markSize * 0.5;
+  const logoRoom = logoSpace(assets.logo, logoH, markBox.width * 0.5);
+  const markText: Box = { ...markBox, height: logoRoom + copy.wordmark.length * markSize * 0.92 + tagsH };
   // Tall formats stack the wordmark above the hero: the head starts below its real height, so a long
   // name or a row of tags never ends up behind the face.
   if (!wide) heroH = Math.min(heroH, H - (markText.top + markText.height + short * 0.015));
@@ -141,6 +143,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
         el="wordmark" t={o.wordmark}
         style={{ display: "flex", flexDirection: "column", alignItems: wide ? "flex-end" : "center", direction: "ltr", opacity: markIn, translate: `0 ${(1 - markIn) * -40}px` }}
       >
+        <Logo logo={assets.logo} height={logoH} maxWidth={markBox.width * 0.5} bg={bg} t={o.logo} style={{ marginBottom: logoH * 0.4 }} />
         {copy.wordmark.map((line, i) => (
           <div
             key={i}

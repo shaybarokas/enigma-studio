@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain, Vignette } from "../fx";
-import { Hero, inkOn, Pill, Placed, useEnter, type Box } from "../parts";
+import { Hero, inkOn, Logo, logoSpace, Pill, Placed, useEnter, type Box } from "../parts";
 
 export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
   const frame = useCurrentFrame();
@@ -43,8 +43,11 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
 
   const subSize = Math.round((wide ? H : W) * (square ? 0.05 : wide ? 0.045 : 0.052));
   // Tall: the hero fills what the text leaves, so the head never covers the hook or the pills.
+  const logoH = headSize * 0.5;
+  const logoRoom = logoSpace(assets.logo, logoH, textBox.width * 0.45);
   const textBottom =
     textBox.top +
+    logoRoom +
     headSize * 1.02 * (line2 ? 2 : 1) +
     headSize * 0.28 +
     subSize * 1.25 * 2 +
@@ -106,6 +109,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
         el="headline" t={o.headline}
         style={{ display: "flex", flexDirection: "column", justifyContent: wide ? "center" : "flex-start", alignItems: wide ? "flex-start" : "center", textAlign: wide ? "right" : "center" }}
       >
+        <Logo logo={assets.logo} height={logoH} maxWidth={textBox.width * 0.45} bg={bg} t={o.logo} progress={l1} style={{ marginBottom: logoH * 0.4 }} />
         <div
           style={{
             fontFamily: head,

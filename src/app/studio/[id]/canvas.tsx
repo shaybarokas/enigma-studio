@@ -11,13 +11,15 @@ import { Editor } from "./editor";
 import { Videos } from "./videos";
 import { Paywalled, paywalled, refreshAccount, showUpgrade, useAccount } from "@/components/account";
 import { COST, kitFeatures } from "@/lib/plans";
+import { ROLE_NAMES, ROLE_ORDER, type MediaRole } from "@/lib/agent/media-names";
 
 type Props = {
   kit: Kit;
   generating: boolean;
   uploading: boolean;
   onGenerate: () => void;
-  onUpload: (f: File) => void;
+  onUpload: (files: File[], role?: MediaRole) => void;
+  onEditMedia: (mediaId: string, change: { role: MediaRole } | "remove") => void;
   onChoose: (i: number) => void;
   onReopenConcepts: () => void;
   onDesignChange: (d: DesignProps) => void;
@@ -54,7 +56,7 @@ const BRIEF_LABELS: [keyof Brief, string][] = [
   ["visualNotes", "טעם עיצובי"],
 ];
 
-function BriefView({ kit, uploading, onUpload, onGenerate }: Props) {
+function BriefView({ kit, uploading, onUpload, onEditMedia, onGenerate }: Props) {
   const b = kit.brief;
   const filled = BRIEF_LABELS.filter(([k]) => b?.[k]).length;
   return (
@@ -84,7 +86,7 @@ function BriefView({ kit, uploading, onUpload, onGenerate }: Props) {
         </dl>
       </div>
 
-      <PhotoCard subject={kit.subject} uploading={uploading} onUpload={onUpload} />
+      <MaterialsCard kit={kit} uploading={uploading} onUpload={onUpload} onEdit={onEditMedia} />
 
       <div className="flex flex-col items-center gap-2 pb-8">
         <button
@@ -104,44 +106,94 @@ function BriefView({ kit, uploading, onUpload, onGenerate }: Props) {
   );
 }
 
-function PhotoCard({ subject, uploading, onUpload }: { subject: Kit["subject"]; uploading: boolean; onUpload: (f: File) => void }) {
+// Everything the user gave the agent: each image with what it was recognised as (editable), the
+// prepared asset (cut-out lecturer, clean logo) and the brand colours found.
+function MaterialsCard({ kit, uploading, onUpload, onEdit }: { kit: Kit; uploading: boolean; onUpload: Props["onUpload"]; onEdit: Props["onEditMedia"] }) {
   const input = useRef<HTMLInputElement>(null);
+  const media = kit.media ?? [];
+  const colors = kit.brief?.brandColors ?? [];
   return (
-    <div className="flex items-center gap-4 rounded-3xl border border-border bg-surface p-5">
-      <div className="flex size-24 shrink-0 items-end justify-center overflow-hidden rounded-2xl bg-gradient-to-b from-brand/20 to-neon/10">
-        {subject ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={subject.src} alt="המרצה, חתוך מהרקע" className="max-h-full max-w-full object-contain" />
-        ) : (
-          <span className="mb-6 text-3xl" aria-hidden>
-            👤
-          </span>
-        )}
-      </div>
-      <div className="flex-1">
-        <h2 className="font-bold">תמונת המרצה</h2>
-        <p className="mt-1 text-sm text-muted">
-          תמונה ברורה, פלג גוף עליון, תאורה טובה. אנחנו חותכים את הרקע ומשלבים אותך בכל עיצוב.
-        </p>
+    <div className="space-y-4 rounded-3xl border border-border bg-surface p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-bold">חומרים</h2>
+          <p className="mt-1 text-sm text-muted">תמונת המרצה, לוגו, מוצרים ועיצובים שאתם אוהבים. הסוכן מזהה לבד מה כל תמונה, ואפשר לתקן.</p>
+        </div>
         <input
           ref={input}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onUpload(f);
+            if (e.target.files?.length) onUpload([...e.target.files].slice(0, 6));
             e.target.value = "";
           }}
         />
         <button
           onClick={() => input.current?.click()}
           disabled={uploading}
-          className="mt-3 rounded-full border border-brand px-4 py-2 text-sm font-bold text-brand transition hover:bg-brand/10 disabled:opacity-50"
+          className="rounded-full border border-brand px-4 py-2 text-sm font-bold text-brand transition hover:bg-brand/10 disabled:opacity-50"
         >
-          {uploading ? "חותך את הרקע…" : subject ? "החלפת תמונה" : "העלאת תמונה"}
+          {uploading ? "מעבד…" : "+ הוספת תמונות"}
         </button>
       </div>
+
+      {media.length === 0 ? (
+        <button
+          onClick={() => input.current?.click()}
+          className="flex w-full flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-border p-6 text-sm text-muted transition hover:border-brand hover:text-brand"
+        >
+          <span className="text-2xl" aria-hidden>
+            🖼️
+          </span>
+          אפשר לבחור כמה תמונות ביחד
+        </button>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {media.map((m) => (
+            <li key={m.id} className="overflow-hidden rounded-2xl border border-border bg-bg">
+              <div className="flex aspect-square items-center justify-center bg-[repeating-conic-gradient(#8881_0_25%,transparent_0_50%)] bg-[length:16px_16px] p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- user uploads from storage */}
+                <img src={m.cut?.src ?? m.url} alt={m.note} className="max-h-full max-w-full object-contain" />
+              </div>
+              <div className="space-y-1.5 p-2">
+                <select
+                  value={m.role}
+                  disabled={uploading}
+                  onChange={(e) => onEdit(m.id, { role: e.target.value as MediaRole })}
+                  aria-label="מה התמונה הזו"
+                  className="w-full rounded-lg border border-border bg-surface px-2 py-1 text-sm font-bold"
+                >
+                  {ROLE_ORDER.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_NAMES[r]}
+                    </option>
+                  ))}
+                </select>
+                <p className="line-clamp-2 text-xs text-muted" title={m.note}>
+                  {m.note}
+                </p>
+                <button onClick={() => onEdit(m.id, "remove")} disabled={uploading} className="text-xs font-semibold text-muted hover:text-danger">
+                  הסרה
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {colors.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-semibold">צבעי המותג:</span>
+          {colors.map((c) => (
+            <span key={c} className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs" dir="ltr">
+              <span className="size-3.5 rounded-full border border-black/10" style={{ background: c }} />
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

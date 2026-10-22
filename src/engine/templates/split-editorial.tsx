@@ -11,6 +11,8 @@ import {
   Hero,
   inkOn,
   isLightBg,
+  Logo,
+  logoSpace,
   Pill,
   Placed,
   Scene,
@@ -118,7 +120,8 @@ export const SplitEditorial: React.FC<DesignProps> = ({
       W,
       H,
       subjectSide,
-      m * 2.6 +
+      logoSpace(assets.logo, base * 0.07, W * 0.35) +
+        m * 2.6 +
         sub * 1.35 * 2 +
         (copy.tags.length ? sub * 0.7 * 3 : 0) +
         hs * (ln * 1.04 + 0.7),
@@ -141,8 +144,9 @@ export const SplitEditorial: React.FC<DesignProps> = ({
   // Masthead, promise (two lines) and tags take their share of the panel; the headline gets the
   // rest, so nothing is pushed out at the bottom.
   const lines = (h2 ? 2 : 1) * (wraps ? 2 : 1);
+  const logoH = base * 0.07;
   const rest =
-    mastSize * 2.6 + subSize * 1.35 * 2 + (copy.tags.length ? tagSize * 3 : 0);
+    logoSpace(assets.logo, logoH, L.content.width * 0.45) + mastSize * 2.6 + subSize * 1.35 * 2 + (copy.tags.length ? tagSize * 3 : 0);
   const headSize = Math.min(
     Math.max(minHead, Math.min(fitted, base * (tall ? 0.13 : 0.12))),
     (L.content.height - rest) / (lines * 1.04 + 0.7),
@@ -263,6 +267,7 @@ export const SplitEditorial: React.FC<DesignProps> = ({
           textAlign: L.vertical ? "center" : "right",
         }}
       >
+        <Logo logo={assets.logo} height={logoH} maxWidth={L.content.width * 0.45} bg={bg} t={o.logo} progress={mastIn} style={{ marginBottom: logoH * 0.4 }} />
         {/* Masthead: the wordmark between two fine rules, like a magazine's name. */}
         <div
           style={{
