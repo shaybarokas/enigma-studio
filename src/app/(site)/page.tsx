@@ -82,18 +82,18 @@ export default function Home() {
           </div>
 
           {hero && (
-            // A fixed left-to-right collage: the graphic, a feed post over its lower edge, and the story
-            // video in a phone beside the face (never over it).
-            <div dir="ltr" className="relative mx-auto aspect-[1/0.7] w-full max-w-xl" aria-label="דוגמה לערכה שנוצרה בסטודיו">
+            // A fixed left-to-right collage: the graphic across the top, the story video and a feed
+            // post overlapping only its lower corners, so neither covers the face or the headline.
+            <div dir="ltr" className="relative mx-auto aspect-[1/0.86] w-full max-w-xl" aria-label="דוגמה לערכה שנוצרה בסטודיו">
               {/* eslint-disable-next-line @next/next/no-img-element -- static showcase files */}
-              <img src={hero.kit[0].file} alt="גרפיקת תצוגה לדוגמה" className="absolute left-0 top-[4%] w-[76%] rounded-2xl border border-white/10 shadow-2xl shadow-black/60" />
+              <img src={hero.kit[0].file} alt="גרפיקת תצוגה לדוגמה" className="absolute left-0 top-0 w-full rounded-2xl border border-white/10 shadow-2xl shadow-black/60" />
               {/* eslint-disable-next-line @next/next/no-img-element -- static showcase files */}
               <img
                 src={SHOWCASE[1]?.kit[1].file ?? hero.kit[1].file}
                 alt="מודעה בפיד לדוגמה"
-                className="absolute bottom-0 left-[34%] w-[30%] -rotate-3 rounded-2xl border border-white/10 shadow-2xl shadow-black/60"
+                className="absolute bottom-0 left-[4%] w-[32%] -rotate-3 rounded-2xl border border-white/10 shadow-2xl shadow-black/60"
               />
-              <div className="absolute right-0 top-0 w-[29%] rotate-2 rounded-[1.6rem] border-[5px] border-[#1c1c2b] bg-black shadow-2xl shadow-black/60">
+              <div className="absolute bottom-0 right-[3%] w-[25%] rotate-2 rounded-[1.6rem] border-[5px] border-[#1c1c2b] bg-black shadow-2xl shadow-black/60">
                 <video src={hero.video} poster={hero.poster} autoPlay muted loop playsInline aria-label="סרטון פרומו לדוגמה" className="aspect-[9/16] w-full rounded-[1.3rem] object-cover" />
               </div>
             </div>

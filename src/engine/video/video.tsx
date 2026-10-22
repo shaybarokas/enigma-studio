@@ -54,7 +54,7 @@ const HeroScene: React.FC<{ design: DesignProps }> = ({ design }) => {
         }}
       />
       <div style={{ position: "absolute", top: markTop, width: "100%", display: "flex", justifyContent: "center", direction: "ltr" }}>
-        <MetalText text={design.copy.wordmark.join(" ")} font={fontFamily(design.brand.displayFont as FontName)} size={markSize} ink={ink} muted={light ? ink : muted} progress={enter(4)} />
+        <MetalText text={design.copy.wordmark.join(" ")} font={fontFamily(design.brand.displayFont as FontName)} size={markSize} ink={ink} muted={muted} tint={light ? ink : undefined} progress={enter(4)} />
       </div>
       {s && (
         <>
@@ -87,7 +87,7 @@ const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: H * 0.03, padding: W * 0.08, textAlign: "center" }}>
         <div style={{ direction: "ltr" }}>
           {design.copy.wordmark.map((l, i) => (
-            <MetalText key={i} text={l} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.16} ink={ink} muted={light ? ink : muted} progress={enter(2 + i * 4)} />
+            <MetalText key={i} text={l} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.16} ink={ink} muted={muted} tint={light ? ink : undefined} progress={enter(2 + i * 4)} />
           ))}
         </div>
         <div style={{ fontFamily: body, fontWeight: 700, fontSize: W * 0.055, color: ink, opacity: enter(14), lineHeight: 1.25, textWrap: "balance" }}>
@@ -106,7 +106,7 @@ const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
 };
 
 // Covers whose main text sits where the captions run lose it in the opening scene.
-const COVER_HIDE: Partial<Record<TemplateId, string[]>> = { "split-editorial": ["headline"] };
+const COVER_HIDE: Partial<Record<TemplateId, string[]>> = { "split-editorial": ["headline"], "arch-luxe": ["wordmark"] };
 
 function SceneVisual({ scene, design, cover }: { scene: Scene; design: DesignProps; cover: TemplateId }) {
   const d = withHidden(design, [...(HIDE_FOR_CAPTIONS[scene.type] ?? []), ...(scene.type === "cover" ? (COVER_HIDE[cover] ?? []) : [])]);
