@@ -42,6 +42,15 @@ const hi = (name: string | null) => (name ? `${esc(name.split(" ")[0])}, ` : "")
 
 // ---------- account ----------
 
+export const confirmEmail = (name: string | null, url: string) =>
+  render({
+    subject: "אישור הכתובת ל־Enigma Studio",
+    heading: "עוד לחיצה אחת ואתם בפנים",
+    body: `${hi(name)}כדי להפעיל את החשבון ולקבל את 15 הקרדיטים לחודש הראשון, מאשרים שהכתובת הזו שלכם. הקישור תקף ל־24 שעות.`,
+    button: { label: "אישור הכתובת וכניסה", url },
+    note: "לא נרשמתם ל־Enigma Studio? אפשר להתעלם מהמייל, ושום חשבון לא יופעל.",
+  });
+
 export const welcomeEmail = (name: string | null) =>
   render({
     subject: "ברוכים הבאים ל־Enigma Studio",

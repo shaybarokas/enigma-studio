@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { parseTransaction, verifyCallback } from "@/lib/billing/payplus";
 import { completeOrder } from "@/lib/billing/service";
+import { alertOwner } from "@/lib/alert";
 
 // PayPlus server-to-server callback (refURL_callback is set per request). Verified by PayPlus's
 // HMAC; the order id travels in more_info. Idempotent.
 export async function POST(request: NextRequest) {
   const raw = await request.text();
   if (!verifyCallback(raw, request.headers)) {
-    console.error("[billing] callback with a bad signature", request.headers.get("user-agent"), raw.length);
+    await alertOwner("billing:signature", "התקבלה קריאה ל-callback של PayPlus עם חתימה לא תקינה", { ua: request.headers.get("user-agent"), bytes: raw.length });
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   let body: unknown;

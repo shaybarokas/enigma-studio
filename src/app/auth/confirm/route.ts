@@ -1,6 +1,8 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { trySend } from "@/lib/email/send";
+import { welcomeEmail } from "@/lib/email/templates";
 
 // One-time links from our emails: verifies the token, which signs the user in, then continues.
 export async function GET(request: NextRequest) {
@@ -10,9 +12,16 @@ export async function GET(request: NextRequest) {
   const target = new URL(type === "recovery" ? "/reset" : "/studio", request.nextUrl.origin);
   if (token_hash && type) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
-    if (!error) return NextResponse.redirect(target);
+    const { data, error } = await supabase.auth.verifyOtp({ type, token_hash });
+    if (!error) {
+      // First confirmation of a new account: the welcome email, and into the studio.
+      if (p.get("welcome") === "1" && data.user?.email) {
+        await trySend({ to: data.user.email, ...welcomeEmail((data.user.user_metadata?.full_name as string | undefined) || null) }, "welcome");
+      }
+      return NextResponse.redirect(target);
+    }
     console.error("[auth] confirm", error.message);
   }
-  return NextResponse.redirect(new URL("/forgot?expired=1", request.nextUrl.origin));
+  // An expired account link leads to the login (which re-sends one); a reset link to a new reset.
+  return NextResponse.redirect(new URL(type === "recovery" ? "/forgot?expired=1" : "/login?expired=1", request.nextUrl.origin));
 }

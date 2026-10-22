@@ -15,6 +15,7 @@ import { createAdminClient } from "../supabase/admin";
 import { compose, speak, type VoiceKey } from "./audio";
 import { writeVideoScript } from "./script";
 import { prepareSpeech } from "./speech";
+import { alertOwner } from "../alert";
 
 // Shortest a scene may run, so the visual has time to land even when the line is short.
 const MIN_SECONDS: Record<Scene["type"], number> = {
@@ -112,7 +113,7 @@ export async function produceVideo(opts: {
       await sandbox.stop().catch(() => {});
     }
   } catch (e) {
-    console.error("[video]", e);
+    await alertOwner("video:failed", "הפקת סרטון נכשלה (הקרדיטים הוחזרו ללקוח)", { video: opts.videoId, kit: opts.kitId, error: (e as Error).message });
     if (opts.cost) await refund(opts.userId, opts.cost, opts.videoId);
     // The free plan's one sample video: a failed one doesn't count.
     else await db.from("accounts").update({ free_video_used: false }).eq("user_id", opts.userId);

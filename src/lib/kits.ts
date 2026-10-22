@@ -35,8 +35,11 @@ export async function getUserAndClient() {
   await connection();
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user: authUser },
   } = await supabase.auth.getUser();
+  // An account counts only once its address is confirmed: every studio page and paid action goes
+  // through here, so an unconfirmed sign-up (from any client) can't use the studio or its credits.
+  const user = authUser?.email_confirmed_at ? authUser : null;
   return { supabase, user };
 }
 

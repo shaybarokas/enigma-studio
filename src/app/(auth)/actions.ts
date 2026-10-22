@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { trySend } from "@/lib/email/send";
-import { appUrl, passwordChangedEmail, resetEmail, welcomeEmail } from "@/lib/email/templates";
+import { appUrl, confirmEmail, passwordChangedEmail, resetEmail } from "@/lib/email/templates";
 
 export type FormState = { error?: string; done?: string } | undefined;
 
@@ -24,38 +24,61 @@ function safeNext(v: FormDataEntryValue | null) {
   return s.startsWith("/studio") ? s : "/studio";
 }
 
+// A one-time link that confirms the address (new accounts) or, for an account that never confirmed,
+// confirms it on click. `welcome` makes /auth/confirm send the welcome email once it succeeds.
+async function sendConfirmation(email: string, name: string | null, type: "signup" | "magiclink", password?: string) {
+  const admin = createAdminClient();
+  const { data, error } =
+    type === "signup"
+      ? await admin.auth.admin.generateLink({ type: "signup", email, password: password!, options: { data: { full_name: name } } })
+      : await admin.auth.admin.generateLink({ type: "magiclink", email });
+  if (error || !data.properties?.hashed_token) return { error };
+  const url = appUrl(`/auth/confirm?type=${type}&welcome=1&token_hash=${encodeURIComponent(data.properties.hashed_token)}`);
+  const sent = await trySend({ to: email, ...confirmEmail(name ?? ((data.user?.user_metadata?.full_name as string | undefined) || null), url) }, "confirm");
+  return { error: sent ? null : new Error("not sent") };
+}
+
 export async function signIn(_: FormState, formData: FormData): Promise<FormState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return { error: "צריך למלא אימייל וסיסמה." };
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: translate(error.message) };
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    if (/not confirmed/i.test(error.message)) {
+      await sendConfirmation(email, null, "magiclink");
+      return { error: "צריך קודם לאשר את כתובת המייל. שלחנו אליכם עכשיו קישור חדש לאישור." };
+    }
+    return { error: translate(error.message) };
+  }
+  // A password alone isn't enough: the address must be confirmed before the account works.
+  if (!data.user.email_confirmed_at) {
+    await supabase.auth.signOut();
+    await sendConfirmation(email, null, "magiclink");
+    return { error: "צריך קודם לאשר את כתובת המייל. שלחנו אליכם עכשיו קישור חדש לאישור." };
+  }
   redirect(safeNext(formData.get("next")));
 }
 
-// Until the studio's own mail domain is set up, accounts are created confirmed (beta).
+// The account opens only from the link in the confirmation email, so every free account is a real,
+// reachable address (one person can't farm free credits with made-up ones).
 export async function signUp(_: FormState, formData: FormData): Promise<FormState> {
   const fullName = String(formData.get("full_name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   if (!fullName || !email) return { error: "צריך למלא שם ואימייל." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "כתובת האימייל לא תקינה." };
   if (password.length < 8) return { error: "הסיסמה צריכה להכיל לפחות 8 תווים." };
 
-  const admin = createAdminClient();
-  const { error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: fullName },
-  });
-  if (createError) return { error: translate(createError.message) };
-
-  await trySend({ to: email, ...welcomeEmail(fullName) }, "welcome");
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: translate(error.message) };
-  redirect("/studio");
+  const { error } = await sendConfirmation(email, fullName, "signup", password);
+  if (error && /already|registered|exists/i.test(error.message)) {
+    // Existing address: the same answer as a new one (nobody learns who has an account); its
+    // owner gets a link that signs in, or confirms an account that was never confirmed.
+    await sendConfirmation(email, fullName, "magiclink");
+  } else if (error) {
+    return { error: /invalid/i.test(error.message) ? "כתובת האימייל לא תקינה." : "לא הצלחנו לשלוח את מייל האישור. נסו שוב בעוד רגע." };
+  }
+  return { done: `שלחנו מייל אישור ל־${email}. לוחצים על הכפתור במייל, והחשבון נפתח. לא הגיע? כדאי לבדוק בספאם.` };
 }
 
 // The same answer whether or not the address has an account, so the form can't be used to

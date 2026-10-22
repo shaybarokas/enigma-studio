@@ -6,6 +6,7 @@ import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { exportStills, type ExportItem } from "@/lib/render/export";
 import { getAccount } from "@/lib/credits";
 import { kitFeatures } from "@/lib/plans";
+import { alertOwner } from "@/lib/alert";
 
 export const maxDuration = 300;
 
@@ -39,7 +40,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/expor
     );
     return NextResponse.json(result);
   } catch (e) {
-    console.error("[export]", e);
+    await alertOwner("export:failed", "הורדה בגודל מלא נכשלה", { kit: id, error: (e as Error).message });
     return NextResponse.json({ error: "ההפקה לא הצליחה. נסו שוב בעוד רגע." }, { status: 502 });
   }
 }

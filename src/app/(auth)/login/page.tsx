@@ -7,9 +7,11 @@ import { AuthShell } from "../auth-shell";
 export const metadata = { title: "כניסה | Enigma Studio" };
 
 async function LoginForm({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
-  const { next } = await searchParams;
+  const { next, expired } = await searchParams;
   return (
-    <AuthForm
+    <>
+      {expired && <p className="mb-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">הקישור פג או שכבר השתמשו בו. נכנסים עם האימייל והסיסמה, ואם החשבון עוד לא אושר, נשלח קישור חדש.</p>}
+      <AuthForm
       action={signIn}
       submitLabel="כניסה"
       next={typeof next === "string" ? next : undefined}
@@ -17,7 +19,8 @@ async function LoginForm({ searchParams }: { searchParams: PageProps<"/login">["
         { name: "email", label: "אימייל", type: "email", autoComplete: "email" },
         { name: "password", label: "סיסמה", type: "password", autoComplete: "current-password" },
       ]}
-    />
+      />
+    </>
   );
 }
 

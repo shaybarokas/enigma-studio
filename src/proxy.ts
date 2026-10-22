@@ -19,8 +19,9 @@ export async function proxy(request: NextRequest) {
     },
   );
   const {
-    data: { user },
+    data: { user: authUser },
   } = await supabase.auth.getUser();
+  const user = authUser?.email_confirmed_at ? authUser : null; // unconfirmed = not signed in
 
   const { pathname } = request.nextUrl;
   // app.<domain> is the studio itself.

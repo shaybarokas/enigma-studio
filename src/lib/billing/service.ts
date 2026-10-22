@@ -5,7 +5,8 @@ import { PACKS, PLANS, discounted, ils, type Interval, type PaidPlan } from "../
 import { couponError, findDiscount } from "../coupons";
 import { trySend } from "../email/send";
 import { billingEmails } from "../email/templates";
-import { chargeToken, createTaxInvoice, generatePaymentLink, lookupPaymentRequest, transactionDocuments, txnSummary, type ParsedTransaction } from "./payplus";
+import { chargeToken, createTaxInvoice, generatePaymentLink, lookupPaymentRequest, transactionDocuments, type ParsedTransaction } from "./payplus";
+import { alertOwner } from "../alert";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
@@ -70,7 +71,7 @@ export async function checkout(user: { id: string; email: string; name: string }
     callbackUrl: `${origin}/api/billing/payplus`,
   });
   if (!link.ok) {
-    console.error("[billing] link failed", order.id, link.error);
+    await alertOwner("billing:link", "עמוד התשלום לא נפתח ללקוח", { order: order.id, error: link.error });
     return { ok: false as const, error: "עמוד התשלום לא נפתח. נסו שוב בעוד רגע." };
   }
   await db.from("orders").update({ page_request_uid: link.pageRequestUid }).eq("id", order.id);
@@ -94,10 +95,10 @@ export async function completeOrder(t: ParsedTransaction): Promise<string> {
     p_invoice: t.invoiceUrl,
   });
   if (error) {
-    console.error("[billing] complete failed: customer paid, account not updated", t.orderId, t.transactionUid, error.message);
+    await alertOwner("billing:complete", "לקוח שילם והחשבון לא עודכן: צריך לטפל ידנית", { order: t.orderId, transaction: t.transactionUid, error: error.message });
     return "error";
   }
-  if (data !== "ok" && data !== "already" && data !== "no_token") console.error("[billing] paid but not completed", t.orderId, t.transactionUid, data);
+  if (data !== "ok" && data !== "already" && data !== "no_token") await alertOwner(`billing:complete:${data}`, "תשלום התקבל אבל ההזמנה לא הושלמה", { order: t.orderId, transaction: t.transactionUid, amount: t.amount, result: data });
   if (data !== "ok") return data as string;
 
   // The IPN lookup (return page) carries no invoice: fetch the one PayPlus issued for the payment.
@@ -105,7 +106,7 @@ export async function completeOrder(t: ParsedTransaction): Promise<string> {
     const docs = await transactionDocuments(t.transactionUid);
     const url = docs[0]?.original_doc_url ?? docs[0]?.copy_doc_url;
     if (url) await db.from("orders").update({ invoice_url: url }).eq("id", t.orderId);
-    else console.error("[billing] no invoice found for payment", t.orderId, t.transactionUid);
+    else await alertOwner("billing:invoice", "לא נמצאה חשבונית לתשלום: לבדוק ב-Invoice+", { order: t.orderId, transaction: t.transactionUid });
   }
 
   const { data: o } = await db.from("orders").select("user_id, kind, plan, billing_interval, credits, amount").eq("id", t.orderId).single();
@@ -127,12 +128,31 @@ export async function settleOrder(orderId: string): Promise<"paid" | "pending" |
   if (order.status === "paid") return "paid";
   if (!order.page_request_uid) return "pending";
   const res = await lookupPaymentRequest(order.page_request_uid);
-  if (!res.ok || !res.txn.ok) {
-    console.error("[billing] ipn not approved", orderId, res.ok ? JSON.stringify(txnSummary(res.txn, res.raw)) : res.error);
+  // Not paid (yet, or ever: an abandoned payment page) is normal; only a failed lookup is worth a line.
+  if (!res.ok) {
+    console.error("[billing] ipn lookup failed", orderId, res.error);
     return "pending";
   }
+  if (!res.txn.ok) return "pending";
   const done = await completeOrder({ ...res.txn, orderId });
   return done === "ok" || done === "already" ? "paid" : "pending";
+}
+
+/** Orders whose payment page was opened but never confirmed (the customer paid and closed the tab,
+ * and PayPlus's callback did not arrive): asked about at PayPlus every few minutes for two days. */
+export async function settlePending() {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("orders")
+    .select("id")
+    .eq("status", "pending")
+    .not("page_request_uid", "is", null)
+    .lt("created_at", new Date(Date.now() - 3 * 60_000).toISOString())
+    .gt("created_at", new Date(Date.now() - 2 * 86_400_000).toISOString())
+    .limit(50);
+  const results: Record<string, string> = {};
+  for (const o of data ?? []) results[o.id] = await settleOrder(o.id);
+  return results;
 }
 
 /** Sent when the customer cancels in the studio. */
@@ -153,7 +173,7 @@ export async function runBillingCron() {
       results[`${row.user_id}:${row.action}`] = await handle(row.user_id, row.action);
     } catch (e) {
       results[`${row.user_id}:${row.action}`] = `error: ${(e as Error).message}`;
-      console.error("[billing] cron item", row.user_id, row.action, (e as Error).message);
+      await alertOwner("billing:cron-item", "שגיאה בטיפול במנוי בריצה היומית", { user: row.user_id, action: row.action, error: (e as Error).message });
     }
   }
   return results;
@@ -194,6 +214,7 @@ async function handle(userId: string, action: Action) {
   if (!res.ok) {
     console.error("[billing] renewal failed", userId, res.error);
     const { data } = await db.rpc("renewal_failed", { p_user: userId });
+    if (data === "downgraded") await alertOwner(`billing:downgraded:${userId}`, "מנוי ירד לחינמי אחרי שלושה חיובים שנכשלו", { customer: email, plan, error: res.error });
     await notify(userId, data === "downgraded" ? "downgraded" : "failed", { plan, amount: ils(amount) });
     return data as string;
   }
@@ -206,7 +227,7 @@ async function handle(userId: string, action: Action) {
     if (!invoiceUrl) {
       const doc = await createTaxInvoice({ transactionUid: res.transactionUid, customerUid: a.payplus_customer_uid, customerName: name ?? email, email, amount, itemName, last4: a.card_last4 });
       if (doc.ok) invoiceUrl = doc.url;
-      else console.error("[billing] invoice missing: issue manually in Invoice+", res.transactionUid, doc.error);
+      else await alertOwner("billing:renewal-invoice", "חשבונית לא הופקה לחידוש: להפיק ידנית ב-Invoice+", { transaction: res.transactionUid, amount, customer: email, error: doc.error });
     }
   }
   await db.rpc("renew_account", { p_user: userId, p_transaction: res.transactionUid, p_amount: amount, p_invoice: invoiceUrl });

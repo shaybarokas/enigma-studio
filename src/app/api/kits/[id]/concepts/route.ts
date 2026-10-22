@@ -6,6 +6,7 @@ import { conceptToDesign } from "@/lib/agent/to-design";
 import { NOT_ENOUGH, refund, spend } from "@/lib/credits";
 import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { COST } from "@/lib/plans";
+import { alertOwner } from "@/lib/alert";
 
 export const maxDuration = 300;
 
@@ -30,7 +31,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/kits/[id]/conc
     await supabase.from("kits").update({ concepts: built, status: "concepts", chosen: null }).eq("id", id);
     return NextResponse.json({ concepts: built });
   } catch (e) {
-    console.error("[concepts]", e);
+    await alertOwner("concepts:failed", "יצירת כיוונים נכשלה (הקרדיטים הוחזרו ללקוח)", { kit: id, error: (e as Error).message });
     await refund(user.id, COST.concepts, id);
     return NextResponse.json({ error: "לא הצלחנו לבנות את הכיוונים. נסו שוב." }, { status: 502 });
   }
