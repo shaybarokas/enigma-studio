@@ -3,7 +3,7 @@ import type { DesignProps } from "@/engine/design";
 import type { Brief } from "@/lib/agent/brief";
 import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { VOICES, type VoiceKey } from "@/lib/video/audio";
+import { DEFAULT_VOICE, VOICES, type VoiceKey } from "@/lib/video/voices";
 import { produceVideo } from "@/lib/video/produce";
 
 // The whole production (script, voice, music, render) runs after the response.
@@ -25,7 +25,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/video
   const { id } = await ctx.params;
   const { kind, voice } = (await req.json()) as { kind?: "promo" | "marketing"; voice?: VoiceKey };
   if (kind !== "promo" && kind !== "marketing") return NextResponse.json({ error: "סוג סרטון לא מוכר" }, { status: 400 });
-  const v: VoiceKey = voice && voice in VOICES ? voice : "omer";
+  const v: VoiceKey = voice && voice in VOICES ? voice : DEFAULT_VOICE;
 
   const { supabase, user } = await getUserAndClient();
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });

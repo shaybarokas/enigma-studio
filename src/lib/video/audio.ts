@@ -7,18 +7,8 @@ import { stripNiqqud } from "./speech";
 const API = "https://api.elevenlabs.io/v1";
 const BUCKET = "kit-assets";
 
-type Engine = "elevenlabs" | "minimax";
-
-/** Hebrew narration voices. */
-export const VOICES = {
-  omer: { engine: "elevenlabs", id: "k77ZRVqAFg9Hd0ltAuON", name: "עומר", note: "גבר · בטוח, פרסומי" },
-  itai: { engine: "elevenlabs", id: "JIxTgeeS5w0UQyBxEnrl", name: "איתי", note: "גבר · אנרגטי, רשתות" },
-  yael: { engine: "elevenlabs", id: "d4eLZ8u5dfBCsjp4YPyz", name: "יעל", note: "אישה · עדינה ובטוחה" },
-  noa: { engine: "elevenlabs", id: "6WRlPmU1fqPwYbSxeP16", name: "נועה", note: "אישה · חמה, מספרת" },
-  mmDeep: { engine: "minimax", id: "Deep_Voice_Man", name: "גבר עמוק", note: "מנוע ב׳" },
-  mmCasual: { engine: "minimax", id: "Casual_Guy", name: "גבר קליל", note: "מנוע ב׳" },
-} as const satisfies Record<string, { engine: Engine; id: string; name: string; note: string }>;
-export type VoiceKey = keyof typeof VOICES;
+import { VOICES, type VoiceKey } from "./voices";
+export { VOICES, type VoiceKey } from "./voices";
 
 async function store(path: string, data: Buffer, contentType: string) {
   const db = createAdminClient();
@@ -117,7 +107,7 @@ function alignCaption(caption: string, spoken: Word[]): Word[] {
  * Returns the stored mp3, its length and each caption word's timing in seconds.
  */
 export async function speak(spoken: string, caption: string, voice: VoiceKey, path: string): Promise<{ url: string; seconds: number; words: Word[] }> {
-  const v = VOICES[voice];
+  const v: { engine: "elevenlabs" | "minimax"; id: string } = VOICES[voice];
   const out = v.engine === "minimax" ? await minimax(spoken, v.id) : await elevenlabs(spoken, v.id);
   const timed = out.words.map((w) => ({ ...w, text: stripNiqqud(w.text) }));
   const url = await store(path, out.audio, "audio/mpeg");

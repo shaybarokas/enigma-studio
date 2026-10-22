@@ -32,6 +32,7 @@ How the narration must sound:
 - Spoken Israeli Hebrew, natural rhythm, short sentences. No marketing clichés ("הזדמנות של פעם בחיים", "אל תפספסו"), no exclamation spam.
 - Each scene type appears at most once (one bullets scene says all the outcomes it needs).
 - 4–14 words per scene; the whole video 45–70 words. The cta scene names the course and the action ("לחצו על הקישור ו…", "ההרשמה פתוחה עכשיו").
+- The voice reads unvowelled Hebrew, so avoid words it can misread out of context (ספר, מספר, חלק, שמע…): give them context ("ספר עם מספרה משלו"), or choose a clearer word ("בעל מספרה").
 - Write numbers as words and avoid abbreviations so the voice reads them right ("אלף מאה תשעים ותשעה שקלים", not "₪1199"; "נדל״ן" is fine).
 - Never invent facts, results, testimonials or credentials that are not in the brief.
 - emphasis: one or two of the line's own words, exactly as written in it, that carry the meaning.

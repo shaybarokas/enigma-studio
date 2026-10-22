@@ -2,15 +2,9 @@
 
 // The kit's videos: pick a kind and a narrator, then watch the production move through its steps.
 import { useEffect, useState } from "react";
+import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
 
 type Video = { id: string; kind: "promo" | "marketing"; voice: string; status: string; url: string | null; error: string | null; created_at: string };
-
-const VOICES = [
-  { key: "omer", name: "עומר", note: "גבר · בטוח, פרסומי" },
-  { key: "itai", name: "איתי", note: "גבר · אנרגטי, רשתות" },
-  { key: "yael", name: "יעל", note: "אישה · עדינה ובטוחה" },
-  { key: "noa", name: "נועה", note: "אישה · חמה, מספרת" },
-];
 
 const KINDS = {
   promo: { name: "סרטון פרומו", note: "טריילר לקורס: על מה הוא ומי מלמד, כמו פרומו לסרט" },
@@ -25,7 +19,7 @@ const STEPS: Record<string, string> = {
 
 export function Videos({ kitId }: { kitId: string }) {
   const [videos, setVideos] = useState<Video[] | null>(null);
-  const [voice, setVoice] = useState("omer");
+  const [voice, setVoice] = useState<string>(DEFAULT_VOICE);
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -65,17 +59,17 @@ export function Videos({ kitId }: { kitId: string }) {
 
       <div className="space-y-3 rounded-3xl border border-border bg-surface p-5">
         <p className="text-sm font-bold">הקול של הסרטון</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="קריין">
-          {VOICES.map((v) => (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5" role="radiogroup" aria-label="קריין">
+          {VOICE_KEYS.map((k) => (
             <button
-              key={v.key}
+              key={k}
               role="radio"
-              aria-checked={voice === v.key}
-              onClick={() => setVoice(v.key)}
-              className={`rounded-2xl border p-3 text-right transition ${voice === v.key ? "border-brand bg-brand/10" : "border-border hover:border-brand/50"}`}
+              aria-checked={voice === k}
+              onClick={() => setVoice(k)}
+              className={`rounded-2xl border p-3 text-right transition ${voice === k ? "border-brand bg-brand/10" : "border-border hover:border-brand/50"}`}
             >
-              <span className="block font-bold">{v.name}</span>
-              <span className="block text-xs text-muted">{v.note}</span>
+              <span className="block font-bold">{VOICES[k].name}</span>
+              <span className="block text-xs text-muted">{VOICES[k].note}</span>
             </button>
           ))}
         </div>
@@ -116,7 +110,7 @@ export function Videos({ kitId }: { kitId: string }) {
               <div className="flex items-center justify-between gap-2 p-3">
                 <div>
                   <p className="text-sm font-bold">{KINDS[v.kind].name}</p>
-                  <p className="text-xs text-muted">קול: {VOICES.find((x) => x.key === v.voice)?.name ?? v.voice}</p>
+                  <p className="text-xs text-muted">קול: {VOICES[v.voice as keyof typeof VOICES]?.name ?? v.voice}</p>
                 </div>
                 {v.status === "ready" && v.url && (
                   <a href={`${v.url}?download=${encodeURIComponent(`${KINDS[v.kind].name}.mp4`)}`} className="rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-strong">
