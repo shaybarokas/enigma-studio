@@ -7,5 +7,5 @@ export async function GET() {
   const { user } = await getUserAndClient();
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const a = await getAccount(user.id);
-  return NextResponse.json({ plan: a.plan, credits: balance(a), freeVideoUsed: a.free_video_used });
+  return NextResponse.json({ plan: a.plan, credits: balance(a), freeVideoUsed: a.free_video_used, kitPasses: a.kit_passes });
 }

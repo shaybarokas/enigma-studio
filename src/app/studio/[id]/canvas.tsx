@@ -9,8 +9,8 @@ import type { Brief } from "@/lib/agent/brief";
 import type { Kit } from "@/lib/kits";
 import { Editor } from "./editor";
 import { Videos } from "./videos";
-import { Paywalled, paywalled, showUpgrade, useAccount } from "@/components/account";
-import { COST, PLANS } from "@/lib/plans";
+import { Paywalled, paywalled, refreshAccount, showUpgrade, useAccount } from "@/components/account";
+import { COST, kitFeatures } from "@/lib/plans";
 
 type Props = {
   kit: Kit;
@@ -32,6 +32,7 @@ export function Canvas(p: Props) {
         design={p.kit.design}
         cover={p.kit.concepts[p.kit.chosen].concept.templateId as TemplateId}
         name={p.kit.concepts[p.kit.chosen].concept.name}
+        unlocked={p.kit.unlocked}
         onReopen={p.onReopenConcepts}
         onDesignChange={p.onDesignChange}
       />
@@ -303,11 +304,39 @@ function DownloadButton({ label, busyLabel, run, className, locked }: { label: s
   );
 }
 
+function GiftBanner({ kitId, onUnlocked }: { kitId: string; onUnlocked: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const unlock = async () => {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/kits/${kitId}/unlock`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setError(data.error ?? "משהו השתבש");
+    refreshAccount();
+    onUnlocked();
+  };
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-brand/40 bg-gradient-to-l from-brand/15 to-neon/10 p-5">
+      <div>
+        <p className="font-black">🎁 יש לך ערכה מלאה במתנה</p>
+        <p className="text-sm text-muted">כל 4 הגדלים בלי חותמת, הורדת ZIP וסרטונים, לערכה הזו. המתנה נצרכת פעם אחת.</p>
+        {error && <p className="mt-1 text-sm text-danger">{error}</p>}
+      </div>
+      <button onClick={unlock} disabled={busy} className="rounded-full bg-brand px-5 py-2.5 font-bold text-white shadow-lg shadow-brand/30 hover:bg-brand-strong disabled:opacity-60">
+        {busy ? "פותח…" : "לפתוח את הערכה הזו"}
+      </button>
+    </div>
+  );
+}
+
 function Gallery({
   kitId,
   design,
   cover,
   name,
+  unlocked: initiallyUnlocked,
   onReopen,
   onDesignChange,
 }: {
@@ -315,6 +344,7 @@ function Gallery({
   design: DesignProps;
   cover: TemplateId;
   name: string;
+  unlocked: boolean;
   onReopen: () => void;
   onDesignChange: (d: DesignProps) => void;
 }) {
@@ -325,11 +355,17 @@ function Gallery({
     { title: "מודעת הוק", note: "פותחת בכאב ועוצרת את הגלילה", template: "ad-hook" },
     { title: "מודעת מה בקורס", note: "התוצאות, המחיר והנעה לפעולה", template: "ad-list" },
   ];
-  const plan = PLANS[useAccount()?.plan ?? "free"];
+  const account = useAccount();
+  const [unlocked, setUnlocked] = useState(initiallyUnlocked);
+  const plan = kitFeatures(account?.plan ?? "free", unlocked);
   // What the downloads will look like: the free plan's files carry the watermark.
   const shown = plan.watermark ? { ...design, watermark: true } : design;
   return (
     <div className="mx-auto max-w-7xl space-y-10 p-4 lg:p-8">
+      {account?.plan === "free" && !unlocked && account.kitPasses > 0 && <GiftBanner kitId={kitId} onUnlocked={() => setUnlocked(true)} />}
+      {account?.plan === "free" && unlocked && (
+        <p className="rounded-2xl bg-brand/10 p-3 text-center text-sm font-semibold text-brand">🎁 ערכה מלאה במתנה: כל הגדלים, בלי חותמת, ZIP וסרטונים, לערכה הזו.</p>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-brand">הכיוון: {name}</p>
@@ -379,10 +415,11 @@ function Gallery({
           </ul>
         </section>
       ))}
-      <Videos kitId={kitId} />
+      <Videos kitId={kitId} unlocked={unlocked} />
       {live && (
         <LiveView
           kitId={kitId}
+          plan={plan}
           design={shown}
           template={live.template}
           initialFormat={live.format}
@@ -417,8 +454,10 @@ function LiveView({
   title,
   onClose,
   onEdit,
+  plan,
 }: {
   kitId?: string;
+  plan?: ReturnType<typeof kitFeatures>; // with kitId: what downloads this kit may do
   onEdit?: (template: TemplateId, format: FormatId) => void;
   design: DesignProps;
   template: TemplateId;
@@ -428,7 +467,6 @@ function LiveView({
 }) {
   const [format, setFormat] = useState(initialFormat);
   const tall = format === "portrait" || format === "story";
-  const plan = PLANS[useAccount()?.plan ?? "free"];
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -445,7 +483,7 @@ function LiveView({
                 ✎ עריכה
               </button>
             )}
-            {kitId && (
+            {kitId && plan && (
               <DownloadButton
                 key={`${template}-${format}`}
                 label={plan.formats.includes(format) ? "⬇ הורדה בגודל מלא" : "🔒 הורדה בגודל מלא"}

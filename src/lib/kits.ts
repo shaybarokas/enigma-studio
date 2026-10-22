@@ -18,6 +18,7 @@ export type Kit = {
   concepts: KitConcept[] | null;
   chosen: number | null;
   design: DesignProps | null;
+  unlocked: boolean; // a gift kit pass opened every paid feature for this kit
   ready: boolean; // the interview has enough for concepts (derived, not stored)
   created_at: string;
   updated_at: string;

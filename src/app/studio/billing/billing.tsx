@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { refreshAccount } from "@/components/account";
-import { COST, PACKS, PLANS, PLAN_FEATURES, ils, type Interval, type PaidPlan, type PlanId } from "@/lib/plans";
+import { COST, PACKS, PLANS, PLAN_FEATURES, discounted, ils, type Interval, type PaidPlan, type PlanId } from "@/lib/plans";
 
 export type BillingAccount = {
   plan: PlanId;
@@ -14,6 +14,8 @@ export type BillingAccount = {
   nextRefill: string;
   cancelAtPeriodEnd: boolean;
   last4: string | null;
+  kitPasses: number;
+  discountUntil: string | null;
 };
 export type Order = { id: string; kind: "subscribe" | "pack" | "renewal"; plan: PaidPlan | null; billing_interval: Interval | null; credits: number | null; amount: number; paid_at: string; invoice_url: string | null };
 
@@ -32,6 +34,28 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const paid = account.plan !== "free";
+  const [code, setCode] = useState("");
+  const [discount, setDiscount] = useState<{ code: string; percent: number; months: number } | null>(null);
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const applyCode = async () => {
+    if (!code.trim()) return;
+    setBusy("code");
+    setCodeMsg(null);
+    const res = await fetch("/api/billing/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (!res.ok) return setCodeMsg({ ok: false, text: data.error ?? "הקוד לא התקבל" });
+    setCode("");
+    if (data.kind === "kit") {
+      setCodeMsg({ ok: true, text: "🎁 ערכה מלאה במתנה נוספה לחשבון! פותחים אותה מתוך הערכה שבוחרים, והקרדיטים שלה כבר בפנים." });
+      refreshAccount();
+      router.refresh();
+    } else {
+      setDiscount({ code: data.code, percent: data.percent, months: data.months });
+      setCodeMsg({ ok: true, text: `הקוד הופעל: ${data.percent}% הנחה ${data.months === 12 ? "לשנה הראשונה" : `ל־${data.months} החודשים הראשונים`}. המחירים למטה כבר מעודכנים.` });
+    }
+  };
 
   useEffect(() => {
     if (status === "paid") refreshAccount();
@@ -78,6 +102,9 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
               {account.cancelAtPeriodEnd ? `מבוטל, פעיל עד ${date(account.periodEnd)}` : `מתחדש ב־${date(account.periodEnd)}`}
               {account.last4 && !account.cancelAtPeriodEnd && <> · כרטיס שמסתיים ב־<span dir="ltr">{account.last4}</span></>}
             </p>
+          )}
+          {paid && account.discountUntil && new Date(account.discountUntil) > new Date() && (
+            <p className="mt-1 text-sm font-semibold text-brand">מחיר מוזל בקוד הנחה עד {date(account.discountUntil)}</p>
           )}
         </div>
         <div>
@@ -126,7 +153,8 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
             const p = PLANS[id];
             const current = account.plan === id && (id === "free" || account.interval === period);
             const featured = id === "pro";
-            const monthly = period === "year" ? Math.round(p.price.year / 12) : p.price.month;
+            const pay = (n: number) => (discount && id !== "free" ? discounted(n, discount.percent) : n);
+            const monthly = period === "year" ? Math.round(pay(p.price.year) / 12) : pay(p.price.month);
             return (
               <li
                 key={id}
@@ -135,10 +163,13 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
                 {featured && <span className="absolute -top-3 start-6 rounded-full bg-brand px-3 py-1 text-xs font-bold text-white">הכי משתלם</span>}
                 <h2 className="text-xl font-black">{p.name}</h2>
                 <p className="mt-3">
+                  {discount && id !== "free" && (
+                    <span className="me-2 text-lg font-bold text-muted line-through">{ils(period === "year" ? Math.round(p.price.year / 12) : p.price.month)}</span>
+                  )}
                   <span className="text-4xl font-black">{ils(monthly)}</span>
                   {id !== "free" && <span className="text-sm text-muted"> לחודש</span>}
                 </p>
-                <p className="h-5 text-xs text-muted">{id !== "free" && period === "year" ? `${ils(p.price.year)} בתשלום שנתי אחד` : ""}</p>
+                <p className="h-5 text-xs text-muted">{id !== "free" && period === "year" ? `${ils(pay(p.price.year))} בתשלום שנתי אחד` : ""}</p>
                 <ul className="mt-5 flex-1 space-y-2 text-sm">
                   {PLAN_FEATURES[id].map((f) => (
                     <li key={f} className="flex gap-2">
@@ -155,7 +186,7 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
                   <p className="mt-6 rounded-full border border-brand py-2.5 text-center text-sm font-bold text-brand">המסלול הנוכחי</p>
                 ) : (
                   <button
-                    onClick={() => buy(id, { kind: "subscribe", plan: id, interval: period })}
+                    onClick={() => buy(id, { kind: "subscribe", plan: id, interval: period, coupon: discount?.code })}
                     disabled={busy !== null}
                     className={`mt-6 rounded-full py-2.5 font-bold transition disabled:opacity-60 ${featured ? "bg-brand text-white shadow-lg shadow-brand/30 hover:bg-brand-strong" : "border border-brand text-brand hover:bg-brand/10"}`}
                   >
@@ -167,6 +198,33 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
           })}
         </ul>
         {paid && <p className="text-center text-xs text-muted">מעבר מסלול מתחיל תקופה חדשה מהיום, עם מכסת הקרדיטים המלאה של המסלול החדש.</p>}
+      </section>
+
+      {/* Coupon codes: a discount for the plans above, or a gift kit. */}
+      <section className="mx-auto max-w-xl rounded-2xl border border-dashed border-border p-5 text-center">
+        <p className="font-bold">יש לך קוד?</p>
+        <p className="text-sm text-muted">קוד הנחה, או קוד של ערכה במתנה (למשל למרצי אניגמה)</p>
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyCode();
+          }}
+        >
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            dir="ltr"
+            placeholder="ENIGMA-XXXX"
+            aria-label="קוד"
+            className="min-w-0 flex-1 rounded-full border border-border bg-bg px-4 py-2.5 text-center font-bold uppercase tracking-wider outline-none focus:border-brand"
+          />
+          <button disabled={busy !== null || !code.trim()} className="rounded-full bg-text px-5 py-2.5 text-sm font-bold text-bg disabled:opacity-50">
+            {busy === "code" ? "בודק…" : "הפעלה"}
+          </button>
+        </form>
+        {codeMsg && <p className={`mt-3 text-sm font-semibold ${codeMsg.ok ? "text-ok" : "text-danger"}`}>{codeMsg.text}</p>}
+        {account.kitPasses > 0 && <p className="mt-2 text-sm text-brand">🎁 מחכה לך {account.kitPasses === 1 ? "ערכה מלאה אחת" : `${account.kitPasses} ערכות מלאות`} במתנה. פותחים מתוך הערכה.</p>}
       </section>
 
       {/* Credit packs. */}

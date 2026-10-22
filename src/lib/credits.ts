@@ -10,6 +10,7 @@ export type Account = {
   period_end: string;
   free_video_used: boolean;
   status: string;
+  kit_passes: number;
 };
 
 export async function getAccount(userId: string): Promise<Account> {
@@ -17,13 +18,13 @@ export async function getAccount(userId: string): Promise<Account> {
   await db.rpc("refill_if_due", { p_user: userId });
   const { data } = await db
     .from("accounts")
-    .select("plan, monthly_credits, extra_credits, period_end, free_video_used, status")
+    .select("plan, monthly_credits, extra_credits, period_end, free_video_used, status, kit_passes")
     .eq("user_id", userId)
     .maybeSingle();
   if (data) return data as Account;
   // An account made before accounts existed: create it on first use.
   await db.from("accounts").insert({ user_id: userId });
-  return { plan: "free", monthly_credits: PLANS.free.credits, extra_credits: 0, period_end: new Date().toISOString(), free_video_used: false, status: "active" };
+  return { plan: "free", monthly_credits: PLANS.free.credits, extra_credits: 0, period_end: new Date().toISOString(), free_video_used: false, status: "active", kit_passes: 0 };
 }
 
 export const balance = (a: Account) => a.monthly_credits + a.extra_credits;

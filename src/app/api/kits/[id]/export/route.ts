@@ -5,7 +5,7 @@ import type { DesignProps } from "@/engine/design";
 import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { exportStills, type ExportItem } from "@/lib/render/export";
 import { getAccount } from "@/lib/credits";
-import { PLANS } from "@/lib/plans";
+import { kitFeatures } from "@/lib/plans";
 
 export const maxDuration = 300;
 
@@ -15,10 +15,10 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/expor
   const body = (await req.json()) as { items?: ExportItem[]; all?: boolean };
   const { supabase, user } = await getUserAndClient();
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
-  const { data: kit } = await supabase.from("kits").select("title, design, concepts, chosen").eq("id", id).maybeSingle();
+  const { data: kit } = await supabase.from("kits").select("title, design, concepts, chosen, unlocked").eq("id", id).maybeSingle();
   if (!kit?.design || kit.chosen == null) return NextResponse.json({ error: "צריך קודם לבחור כיוון" }, { status: 400 });
 
-  const plan = PLANS[(await getAccount(user.id)).plan];
+  const plan = kitFeatures((await getAccount(user.id)).plan, kit.unlocked);
   if (body.all && !plan.zip) return NextResponse.json({ error: "הורדת כל הערכה בקובץ אחד כלולה במסלולים בתשלום.", code: "plan" }, { status: 402 });
   if (!body.all && (body.items ?? []).some((i) => !plan.formats.includes(i.format)))
     return NextResponse.json({ error: "במסלול החינמי אפשר להוריד בריבוע ובסטורי. שאר הגדלים כלולים במסלולים בתשלום.", code: "plan" }, { status: 402 });

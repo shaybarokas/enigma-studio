@@ -1,14 +1,15 @@
 // Orders, payment confirmation and renewals. The database functions (complete_order,
 // renew_account, renewal_failed, downgrade_to_free) do the account changes atomically.
 import { createAdminClient } from "../supabase/admin";
-import { PACKS, PLANS, ils, type Interval, type PaidPlan } from "../plans";
+import { PACKS, PLANS, discounted, ils, type Interval, type PaidPlan } from "../plans";
+import { couponError, findDiscount } from "../coupons";
 import { trySend } from "../email/send";
 import { billingEmails } from "../email/templates";
 import { chargeToken, createTaxInvoice, generatePaymentLink, lookupPaymentRequest, transactionDocuments, txnSummary, type ParsedTransaction } from "./payplus";
 
 const UUID = /^[0-9a-f-]{36}$/;
 
-export type Purchase = { kind: "subscribe"; plan: PaidPlan; interval: Interval } | { kind: "pack"; pack: string };
+export type Purchase = { kind: "subscribe"; plan: PaidPlan; interval: Interval; coupon?: string } | { kind: "pack"; pack: string };
 
 export const planName = (plan: PaidPlan, interval: Interval | null) => `Enigma Studio · מסלול ${PLANS[plan].name}${interval === "year" ? " (שנתי)" : ""}`;
 /** The plan as the customer reads it in an email: "מסלול מקצועי (שנתי)". */
@@ -28,11 +29,19 @@ async function notify(userId: string, kind: BillingMail, v: Omit<Parameters<(typ
 
 /** Creates the order and its PayPlus payment page; returns the link to send the customer to. */
 export async function checkout(user: { id: string; email: string; name: string }, p: Purchase, origin: string) {
-  let amount: number, itemName: string, credits: number | null = null;
+  let amount: number, itemName: string, credits: number | null = null, coupon: string | null = null, fullPrice: number | null = null;
   if (p.kind === "subscribe") {
     if (!(p.plan in PLANS) || p.plan === ("free" as string) || !["month", "year"].includes(p.interval)) return { ok: false as const, error: "מסלול לא מוכר" };
     amount = PLANS[p.plan].price[p.interval];
     itemName = planName(p.plan, p.interval);
+    if (p.coupon) {
+      const d = await findDiscount(p.coupon, user.id);
+      if (!d.ok) return { ok: false as const, error: couponError(d.reason) };
+      coupon = d.coupon.code;
+      fullPrice = amount;
+      amount = discounted(amount, d.coupon.percent!);
+      itemName += ` · ${d.coupon.percent}% הנחה`;
+    }
   } else {
     const pack = PACKS.find((x) => x.id === p.pack);
     if (!pack) return { ok: false as const, error: "חבילה לא מוכרת" };
@@ -44,7 +53,7 @@ export async function checkout(user: { id: string; email: string; name: string }
   const db = createAdminClient();
   const { data: order, error } = await db
     .from("orders")
-    .insert({ user_id: user.id, kind: p.kind, plan: p.kind === "subscribe" ? p.plan : null, billing_interval: p.kind === "subscribe" ? p.interval : null, credits, amount })
+    .insert({ user_id: user.id, kind: p.kind, plan: p.kind === "subscribe" ? p.plan : null, billing_interval: p.kind === "subscribe" ? p.interval : null, credits, amount, coupon, full_price: fullPrice })
     .select("id")
     .single();
   if (error) return { ok: false as const, error: "לא הצלחנו לפתוח הזמנה. נסו שוב." };
@@ -154,7 +163,10 @@ async function handle(userId: string, action: Action) {
   const db = createAdminClient();
   const { data: a } = await db.from("accounts").select("*").eq("user_id", userId).single();
   const plan = planLabel(a.plan, a.billing_interval);
-  const amount = Number(a.price_ils);
+  // A coupon's discount covers its months; from the first renewal after them, the full price.
+  // Measured at the renewal date, so the reminder a week earlier already quotes the right price.
+  const discountOver = a.discount_until && new Date(a.discount_until).getTime() <= new Date(a.period_end).getTime() + 86_400_000;
+  const amount = discountOver ? PLANS[a.plan as PaidPlan].price[a.billing_interval as Interval] : Number(a.price_ils);
 
   if (action === "remind") {
     await notify(userId, "reminder", { plan, amount: ils(amount), date: a.period_end });

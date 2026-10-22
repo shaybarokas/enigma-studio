@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_VOICE, VOICES, type VoiceKey } from "@/lib/video/voices";
 import { produceVideo } from "@/lib/video/produce";
 import { getAccount, NOT_ENOUGH, spend } from "@/lib/credits";
-import { COST, PLANS } from "@/lib/plans";
+import { COST, kitFeatures } from "@/lib/plans";
 
 // The whole production (script, voice, music, render) runs after the response.
 export const maxDuration = 800;
@@ -31,12 +31,12 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/video
 
   const { supabase, user } = await getUserAndClient();
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
-  const { data: kit } = await supabase.from("kits").select("brief, design, concepts, chosen").eq("id", id).maybeSingle();
+  const { data: kit } = await supabase.from("kits").select("brief, design, concepts, chosen, unlocked").eq("id", id).maybeSingle();
   if (!kit?.design || kit.chosen == null) return NextResponse.json({ error: "צריך קודם לבחור כיוון" }, { status: 400 });
 
   // Free plan: one sample promo, with the mark. Paid plans: credits.
   const account = await getAccount(user.id);
-  const plan = PLANS[account.plan];
+  const plan = kitFeatures(account.plan, kit.unlocked);
   const db = createAdminClient();
   let cost = 0;
   if (!plan.videos) {

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useSyncExternalStore } from "react";
 import type { PlanId } from "@/lib/plans";
 
-type Account = { plan: PlanId; credits: number; freeVideoUsed: boolean };
+type Account = { plan: PlanId; credits: number; freeVideoUsed: boolean; kitPasses: number };
 type State = { account: Account | null; upgrade: string | null };
 
 let state: State = { account: null, upgrade: null };

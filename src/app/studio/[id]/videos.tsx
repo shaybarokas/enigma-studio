@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
 import { paywalled, refreshAccount, useAccount } from "@/components/account";
-import { COST, PLANS } from "@/lib/plans";
+import { COST, kitFeatures } from "@/lib/plans";
 
 type Video = { id: string; kind: "promo" | "marketing"; voice: string; status: string; url: string | null; error: string | null; created_at: string };
 
@@ -19,14 +19,14 @@ const STEPS: Record<string, string> = {
   rendering: "מרנדר את הסרטון בענן…",
 };
 
-export function Videos({ kitId }: { kitId: string }) {
+export function Videos({ kitId, unlocked }: { kitId: string; unlocked: boolean }) {
   const [videos, setVideos] = useState<Video[] | null>(null);
   const [voice, setVoice] = useState<string>(DEFAULT_VOICE);
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const account = useAccount();
-  const paid = account ? PLANS[account.plan].videos : false;
+  const paid = account ? kitFeatures(account.plan, unlocked).videos : false;
   const working = videos?.some((v) => v.status in STEPS) ?? false;
   // A failed production gives its credits back: show the new balance.
   const failed = videos?.filter((v) => v.status === "failed").length ?? 0;

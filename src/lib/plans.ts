@@ -16,6 +16,12 @@ export const PLANS: Record<
   business: { name: "מתקדם", credits: 450, price: { month: 299, year: 2990 }, formats: ["landscape", "square", "portrait", "story"], watermark: false, zip: true, videos: true },
 };
 
+/** What a kit may do: its account's plan, or every paid feature when a gift pass unlocked it. */
+export const kitFeatures = (plan: PlanId, unlocked: boolean) => (unlocked && plan === "free" ? { ...PLANS.basic, credits: PLANS.free.credits } : PLANS[plan]);
+
+/** A plan's price after a discount coupon, rounded to whole shekels. */
+export const discounted = (price: number, percent: number) => Math.round((price * (100 - percent)) / 100);
+
 /** What things cost, in credits. Downloads are free. */
 export const COST = {
   concepts: 10, // three directions, with their AI scenes and props
