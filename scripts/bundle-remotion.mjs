@@ -9,8 +9,11 @@ const outDir = path.resolve("remotion-bundle");
 fs.rmSync(outDir, { recursive: true, force: true });
 await bundle({ entryPoint: path.resolve("src/remotion/index.ts"), outDir, publicDir: path.resolve("remotion-public") });
 
-// Chunk source maps are dead weight in the sandbox (the renderer only reads bundle.js.map).
+// Chunk source maps are dead weight in the sandbox (the renderer only reads bundle.js.map). Next's
+// file tracing leaves every *.map out of the deployed function, so the renderer's map also ships
+// under a .json name; the sandbox gets it back as bundle.js.map (lib/render/sandbox.ts).
 for (const f of fs.readdirSync(outDir)) if (f.endsWith(".map") && f !== "bundle.js.map") fs.rmSync(path.join(outDir, f));
+fs.copyFileSync(path.join(outDir, "bundle.js.map"), path.join(outDir, "bundle-map.json"));
 
 const hash = createHash("sha256");
 const walk = (d) =>
