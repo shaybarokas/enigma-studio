@@ -33,6 +33,7 @@ export const designSchema = z.object({
   assets: assetsSchema,
   subjectSide: z.enum(["left", "right"]).default("left"),
   overrides: z.record(z.string(), transformSchema.partial()).default({}),
+  watermark: z.boolean().optional(), // free plan: "made with Enigma Studio" on every output
 });
 export type DesignProps = z.infer<typeof designSchema>;
 

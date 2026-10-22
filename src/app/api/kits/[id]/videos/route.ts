@@ -5,6 +5,8 @@ import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_VOICE, VOICES, type VoiceKey } from "@/lib/video/voices";
 import { produceVideo } from "@/lib/video/produce";
+import { getAccount, NOT_ENOUGH, spend } from "@/lib/credits";
+import { COST, PLANS } from "@/lib/plans";
 
 // The whole production (script, voice, music, render) runs after the response.
 export const maxDuration = 800;
@@ -32,7 +34,20 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/video
   const { data: kit } = await supabase.from("kits").select("brief, design, concepts, chosen").eq("id", id).maybeSingle();
   if (!kit?.design || kit.chosen == null) return NextResponse.json({ error: "צריך קודם לבחור כיוון" }, { status: 400 });
 
+  // Free plan: one sample promo, with the mark. Paid plans: credits.
+  const account = await getAccount(user.id);
+  const plan = PLANS[account.plan];
   const db = createAdminClient();
+  let cost = 0;
+  if (!plan.videos) {
+    if (account.free_video_used || kind !== "promo")
+      return NextResponse.json({ error: "סרטונים כלולים במסלולים בתשלום. במסלול החינמי יש סרטון פרומו לדוגמה אחד.", code: "plan" }, { status: 402 });
+    await db.from("accounts").update({ free_video_used: true }).eq("user_id", user.id);
+  } else {
+    if (!(await spend(user.id, COST.video, "video", id))) return NextResponse.json({ error: NOT_ENOUGH, code: "credits" }, { status: 402 });
+    cost = COST.video;
+  }
+
   const { data: row, error } = await db
     .from("videos")
     .insert({ kit_id: id, user_id: user.id, kind, voice: v })
@@ -48,7 +63,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/video
       kind,
       voice: v,
       brief: kit.brief as Brief | null,
-      design: kit.design as DesignProps,
+      design: { ...(kit.design as DesignProps), watermark: plan.watermark },
+      cost,
       cover: (kit.concepts as KitConcept[])[kit.chosen].concept.templateId,
     }),
   );

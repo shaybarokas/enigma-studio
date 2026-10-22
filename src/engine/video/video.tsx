@@ -12,6 +12,7 @@ import { alpha, Glow, Grain, Vignette } from "../fx";
 import { CtaButton, Hero, inkOn, MetalText, useEnter } from "../parts";
 import { TEMPLATES } from "../templates";
 import { Captions } from "./captions";
+import { Watermark } from "../watermark";
 import { TRANSITION_FRAMES, videoDuration, type Scene, type VideoProps } from "./schema";
 
 // The narration already says what's on screen in these scenes, so the template's own line steps
@@ -21,7 +22,7 @@ const HIDE_FOR_CAPTIONS: Record<string, string[]> = { cover: ["subtitle"], props
 function withHidden(design: DesignProps, els: string[]): DesignProps {
   const overrides = { ...design.overrides };
   for (const el of els) overrides[el] = { ...overrides[el], hidden: true };
-  return { ...design, overrides };
+  return { ...design, overrides, watermark: false }; // the video draws its own, once
 }
 
 /** The lecturer up close in their world: a slow push, rim light, the brand name on top. */
@@ -147,6 +148,7 @@ const Video: React.FC<VideoProps> = ({ design, cover, scenes, music, captions })
           ];
         })}
       </TransitionSeries>
+      {design.watermark && <Watermark />}
       {music && (
         <Audio
           src={music}

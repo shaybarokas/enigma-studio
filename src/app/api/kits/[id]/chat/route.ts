@@ -6,7 +6,9 @@ import { findLinks, linkText } from "@/lib/agent/link-text";
 import { generateScene } from "@/lib/agent/assets";
 import { applyEdit, planEdit } from "@/lib/agent/edit";
 import type { DesignProps } from "@/engine/design";
+import { NOT_ENOUGH, refund, spend } from "@/lib/credits";
 import { getUserAndClient, type ChatMessage } from "@/lib/kits";
+import { COST } from "@/lib/plans";
 
 export const maxDuration = 180;
 
@@ -40,12 +42,16 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
 
   // Once the kit is designed, the chat edits it.
   if (kit.status === "ready" && kit.design) {
+    if (!(await spend(user.id, COST.edit, "edit", id))) return NextResponse.json({ error: NOT_ENOUGH, code: "credits" }, { status: 402 });
     try {
       const recent = history.slice(-12);
       while (recent[0]?.role === "assistant") recent.shift(); // a conversation must open with the user
       const edit = await planEdit(recent, kit.design as DesignProps);
       let background: { wide: string; tall: string } | undefined;
-      if (edit.newBackgroundPrompt) {
+      // A new scene costs more; without the credits the rest of the change still applies.
+      const sceneOk = edit.newBackgroundPrompt ? await spend(user.id, COST.editWithScene - COST.edit, "edit-scene", id) : false;
+      if (edit.newBackgroundPrompt && !sceneOk) edit.reply += "\n(רקע חדש דורש עוד קרדיטים, אז את הרקע השארתי כמו שהוא.)";
+      if (edit.newBackgroundPrompt && sceneOk) {
         const stamp = Date.now();
         const [wide, tall] = await Promise.all([
           generateScene(edit.newBackgroundPrompt, "16:9", `${user.id}/${id}/edit-${stamp}-16x9.jpg`),
@@ -59,6 +65,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
       return NextResponse.json({ reply, design });
     } catch (e) {
       console.error("[chat-edit]", e);
+      await refund(user.id, COST.edit, id);
       return NextResponse.json({ error: "לא הצלחתי לבצע את השינוי. נסו לנסח אחרת." }, { status: 502 });
     }
   }

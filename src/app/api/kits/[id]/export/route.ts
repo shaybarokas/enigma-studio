@@ -4,6 +4,8 @@ import { TEMPLATE_IDS, type TemplateId } from "@/engine/catalog";
 import type { DesignProps } from "@/engine/design";
 import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { exportStills, type ExportItem } from "@/lib/render/export";
+import { getAccount } from "@/lib/credits";
+import { PLANS } from "@/lib/plans";
 
 export const maxDuration = 300;
 
@@ -16,6 +18,11 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/expor
   const { data: kit } = await supabase.from("kits").select("title, design, concepts, chosen").eq("id", id).maybeSingle();
   if (!kit?.design || kit.chosen == null) return NextResponse.json({ error: "צריך קודם לבחור כיוון" }, { status: 400 });
 
+  const plan = PLANS[(await getAccount(user.id)).plan];
+  if (body.all && !plan.zip) return NextResponse.json({ error: "הורדת כל הערכה בקובץ אחד כלולה במסלולים בתשלום.", code: "plan" }, { status: 402 });
+  if (!body.all && (body.items ?? []).some((i) => !plan.formats.includes(i.format)))
+    return NextResponse.json({ error: "במסלול החינמי אפשר להוריד בריבוע ובסטורי. שאר הגדלים כלולים במסלולים בתשלום.", code: "plan" }, { status: 402 });
+
   const cover = (kit.concepts as KitConcept[])[kit.chosen].concept.templateId as TemplateId;
   const valid = (i: ExportItem) => TEMPLATE_IDS.includes(i.template) && FORMAT_IDS.includes(i.format as FormatId);
   const items: ExportItem[] = body.all
@@ -25,7 +32,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/expor
 
   try {
     const result = await exportStills(
-      kit.design as DesignProps,
+      { ...(kit.design as DesignProps), watermark: plan.watermark },
       items,
       `${user.id}/${id}/exports`,
       body.all ? `${kit.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 60) || "ערכה"}.zip` : undefined,

@@ -29,7 +29,8 @@ export async function proxy(request: NextRequest) {
     url.pathname = user ? "/studio" : "/login";
     return NextResponse.redirect(url);
   }
-  if (!user && pathname.startsWith("/studio")) {
+  // The return from PayPlus may be a cross-site POST without cookies: it only confirms the order.
+  if (!user && pathname.startsWith("/studio") && pathname !== "/studio/billing/return") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = `?next=${encodeURIComponent(pathname)}`;

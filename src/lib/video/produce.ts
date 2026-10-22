@@ -10,6 +10,7 @@ import {
 } from "@/engine/video/schema";
 import type { Brief } from "../agent/brief";
 import { renderSandbox } from "../render/sandbox";
+import { refund } from "../credits";
 import { createAdminClient } from "../supabase/admin";
 import { compose, speak, type VoiceKey } from "./audio";
 import { writeVideoScript } from "./script";
@@ -34,6 +35,7 @@ export async function produceVideo(opts: {
   brief: Brief | null;
   design: DesignProps;
   cover: string;
+  cost: number; // credits to give back if the production fails
 }) {
   const db = createAdminClient();
   const set = (patch: Record<string, unknown>) =>
@@ -111,6 +113,9 @@ export async function produceVideo(opts: {
     }
   } catch (e) {
     console.error("[video]", e);
+    if (opts.cost) await refund(opts.userId, opts.cost, opts.videoId);
+    // The free plan's one sample video: a failed one doesn't count.
+    else await db.from("accounts").update({ free_video_used: false }).eq("user_id", opts.userId);
     await set({
       status: "failed",
       error: String((e as Error).message ?? e).slice(0, 500),

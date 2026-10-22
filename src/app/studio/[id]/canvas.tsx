@@ -9,6 +9,8 @@ import type { Brief } from "@/lib/agent/brief";
 import type { Kit } from "@/lib/kits";
 import { Editor } from "./editor";
 import { Videos } from "./videos";
+import { Paywalled, paywalled, showUpgrade, useAccount } from "@/components/account";
+import { COST, PLANS } from "@/lib/plans";
 
 type Props = {
   kit: Kit;
@@ -91,7 +93,11 @@ function BriefView({ kit, uploading, onUpload, onGenerate }: Props) {
         >
           ✦ צרו לי 3 כיוונים
         </button>
-        {!kit.ready && <p className="text-sm text-muted">עוד כמה תשובות לסוכן, ואפשר להתחיל.</p>}
+        {kit.ready ? (
+          <p className="text-sm text-muted">{COST.concepts} קרדיטים, כולל תמונות ותפאורות שנוצרות במיוחד</p>
+        ) : (
+          <p className="text-sm text-muted">עוד כמה תשובות לסוכן, ואפשר להתחיל.</p>
+        )}
       </div>
     </div>
   );
@@ -264,11 +270,12 @@ function Concepts({ kit, onChoose, onRegenerate }: { kit: Kit; onChoose: (i: num
 async function requestExport(kitId: string, body: object): Promise<{ files: { url: string }[]; zipUrl?: string }> {
   const res = await fetch(`/api/kits/${kitId}/export`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
+  if (paywalled(res, data)) throw new Paywalled();
   if (!res.ok) throw new Error(data.error ?? "ההורדה לא הצליחה");
   return data;
 }
 
-function DownloadButton({ label, busyLabel, run, className }: { label: string; busyLabel: string; run: () => Promise<string>; className: string }) {
+function DownloadButton({ label, busyLabel, run, className, locked }: { label: string; busyLabel: string; run: () => Promise<string>; className: string; locked?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -277,12 +284,13 @@ function DownloadButton({ label, busyLabel, run, className }: { label: string; b
         disabled={busy}
         className={className}
         onClick={async () => {
+          if (locked) return showUpgrade(locked);
           setBusy(true);
           setError("");
           try {
             window.location.href = await run();
           } catch (e) {
-            setError((e as Error).message);
+            if (!(e instanceof Paywalled)) setError((e as Error).message);
           } finally {
             setBusy(false);
           }
@@ -317,6 +325,9 @@ function Gallery({
     { title: "מודעת הוק", note: "פותחת בכאב ועוצרת את הגלילה", template: "ad-hook" },
     { title: "מודעת מה בקורס", note: "התוצאות, המחיר והנעה לפעולה", template: "ad-list" },
   ];
+  const plan = PLANS[useAccount()?.plan ?? "free"];
+  // What the downloads will look like: the free plan's files carry the watermark.
+  const shown = plan.watermark ? { ...design, watermark: true } : design;
   return (
     <div className="mx-auto max-w-7xl space-y-10 p-4 lg:p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -335,7 +346,8 @@ function Gallery({
             ✎ עריכת העיצוב
           </button>
           <DownloadButton
-            label="⬇ הורדת כל הערכה (ZIP)"
+            label={plan.zip ? "⬇ הורדת כל הערכה (ZIP)" : "🔒 הורדת כל הערכה (ZIP)"}
+            locked={plan.zip ? undefined : "הורדת כל הערכה בקובץ אחד כלולה במסלולים בתשלום."}
             busyLabel="מפיק 12 קבצים בגודל מלא… (כדקה)"
             run={async () => (await requestExport(kitId, { all: true })).zipUrl!}
             className="rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-strong disabled:opacity-70"
@@ -356,9 +368,10 @@ function Gallery({
                   className="group block w-full overflow-hidden rounded-2xl border border-border transition hover:border-brand hover:shadow-xl hover:shadow-brand/10"
                   aria-label={`${s.title}, ${FORMATS[f].name}: תצוגה חיה`}
                 >
-                  <DesignThumb design={design} template={s.template} format={f} />
+                  <DesignThumb design={shown} template={s.template} format={f} />
                 </button>
                 <p className="mt-2 text-center text-xs font-semibold text-muted">
+                  {!plan.formats.includes(f) && <span title="כלול במסלולים בתשלום">🔒 </span>}
                   {FORMATS[f].name} · <span dir="ltr">{FORMATS[f].label}</span>
                 </p>
               </li>
@@ -370,7 +383,7 @@ function Gallery({
       {live && (
         <LiveView
           kitId={kitId}
-          design={design}
+          design={shown}
           template={live.template}
           initialFormat={live.format}
           title={sections.find((s) => s.template === live.template)?.title ?? ""}
@@ -415,6 +428,7 @@ function LiveView({
 }) {
   const [format, setFormat] = useState(initialFormat);
   const tall = format === "portrait" || format === "story";
+  const plan = PLANS[useAccount()?.plan ?? "free"];
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -434,7 +448,8 @@ function LiveView({
             {kitId && (
               <DownloadButton
                 key={`${template}-${format}`}
-                label="⬇ הורדה בגודל מלא"
+                label={plan.formats.includes(format) ? "⬇ הורדה בגודל מלא" : "🔒 הורדה בגודל מלא"}
+                locked={plan.formats.includes(format) ? undefined : "במסלול החינמי אפשר להוריד בריבוע ובסטורי. שאר הגדלים כלולים במסלולים בתשלום."}
                 busyLabel="מפיק…"
                 run={async () => (await requestExport(kitId, { items: [{ template, format }] })).files[0].url}
                 className="rounded-full bg-white px-4 py-2 text-sm font-bold text-black transition hover:bg-white/85 disabled:opacity-70"

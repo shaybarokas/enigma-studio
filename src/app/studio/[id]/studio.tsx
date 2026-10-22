@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Kit, ChatMessage, KitConcept } from "@/lib/kits";
 import { Chat } from "./chat";
 import { Canvas } from "./canvas";
+import { Paywalled, paywalled } from "@/components/account";
 
 // The studio: the agent's chat on one side, the kit taking shape on the other.
 export function Studio({ initial }: { initial: Kit }) {
@@ -21,6 +22,7 @@ export function Studio({ initial }: { initial: Kit }) {
       headers: json && body ? { "Content-Type": "application/json" } : undefined,
     });
     const data = await res.json().catch(() => ({}));
+    if (paywalled(res, data)) throw new Paywalled();
     if (!res.ok) throw new Error(data.error ?? "משהו השתבש. נסו שוב.");
     return data;
   };
@@ -42,7 +44,7 @@ export function Studio({ initial }: { initial: Kit }) {
         design: d.design ?? k.design,
       }));
     } catch (e) {
-      setError((e as Error).message);
+      if (!(e instanceof Paywalled)) setError((e as Error).message);
       setKit((k) => ({ ...k, messages: k.messages.slice(0, -1) }));
     } finally {
       setSending(false);
@@ -63,7 +65,7 @@ export function Studio({ initial }: { initial: Kit }) {
         design: k.design ? { ...k.design, assets: { ...k.design.assets, subject: d.subject } } : null,
       }));
     } catch (e) {
-      setError((e as Error).message);
+      if (!(e instanceof Paywalled)) setError((e as Error).message);
     } finally {
       setUploading(false);
     }
@@ -77,7 +79,7 @@ export function Studio({ initial }: { initial: Kit }) {
       const d = (await post("/concepts")) as { concepts: KitConcept[] };
       setKit((k) => ({ ...k, concepts: d.concepts, status: "concepts", chosen: null, design: null }));
     } catch (e) {
-      setError((e as Error).message);
+      if (!(e instanceof Paywalled)) setError((e as Error).message);
     } finally {
       setGenerating(false);
     }
@@ -89,7 +91,7 @@ export function Studio({ initial }: { initial: Kit }) {
       const d = await post("/choose", JSON.stringify({ index }));
       setKit((k) => ({ ...k, chosen: index, design: d.design, status: "ready", messages: d.messages ?? k.messages }));
     } catch (e) {
-      setError((e as Error).message);
+      if (!(e instanceof Paywalled)) setError((e as Error).message);
     }
   };
 

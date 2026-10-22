@@ -1,5 +1,6 @@
 "use client";
 
+import { COST } from "@/lib/plans";
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/kits";
 
@@ -83,6 +84,7 @@ export function Chat({
             <button onClick={onGenerate} className="rounded-full bg-brand px-5 py-2.5 font-bold text-white shadow-lg shadow-brand/30 hover:bg-brand-strong">
               צרו לי 3 כיוונים
             </button>
+            <p className="mt-2 text-xs text-muted">{COST.concepts} קרדיטים</p>
           </div>
         )}
         <div ref={end} />

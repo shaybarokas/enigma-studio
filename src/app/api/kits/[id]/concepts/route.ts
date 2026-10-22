@@ -3,7 +3,9 @@ import { buildConceptAssets } from "@/lib/agent/assets";
 import type { Brief } from "@/lib/agent/brief";
 import { createConcepts } from "@/lib/agent/concepts";
 import { conceptToDesign } from "@/lib/agent/to-design";
+import { NOT_ENOUGH, refund, spend } from "@/lib/credits";
 import { getUserAndClient, type KitConcept } from "@/lib/kits";
+import { COST } from "@/lib/plans";
 
 export const maxDuration = 300;
 
@@ -15,6 +17,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/kits/[id]/conc
   const { data: kit } = await supabase.from("kits").select("brief, subject").eq("id", id).maybeSingle();
   if (!kit?.brief) return NextResponse.json({ error: "צריך קודם לספר לסוכן על ההשקה" }, { status: 400 });
   const brief = kit.brief as Brief;
+  if (!(await spend(user.id, COST.concepts, "concepts", id))) return NextResponse.json({ error: NOT_ENOUGH, code: "credits" }, { status: 402 });
 
   try {
     const concepts = await createConcepts(brief);
@@ -28,6 +31,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/kits/[id]/conc
     return NextResponse.json({ concepts: built });
   } catch (e) {
     console.error("[concepts]", e);
+    await refund(user.id, COST.concepts, id);
     return NextResponse.json({ error: "לא הצלחנו לבנות את הכיוונים. נסו שוב." }, { status: 502 });
   }
 }

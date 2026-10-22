@@ -3,6 +3,8 @@
 // The kit's videos: pick a kind and a narrator, then watch the production move through its steps.
 import { useEffect, useState } from "react";
 import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
+import { paywalled, refreshAccount, useAccount } from "@/components/account";
+import { COST, PLANS } from "@/lib/plans";
 
 type Video = { id: string; kind: "promo" | "marketing"; voice: string; status: string; url: string | null; error: string | null; created_at: string };
 
@@ -23,7 +25,14 @@ export function Videos({ kitId }: { kitId: string }) {
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  const account = useAccount();
+  const paid = account ? PLANS[account.plan].videos : false;
   const working = videos?.some((v) => v.status in STEPS) ?? false;
+  // A failed production gives its credits back: show the new balance.
+  const failed = videos?.filter((v) => v.status === "failed").length ?? 0;
+  useEffect(() => {
+    if (failed) refreshAccount();
+  }, [failed]);
   useEffect(() => {
     let live = true;
     const load = async () => {
@@ -46,6 +55,7 @@ export function Videos({ kitId }: { kitId: string }) {
     const res = await fetch(`/api/kits/${kitId}/videos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, voice }) });
     const data = await res.json().catch(() => ({}));
     setStarting(null);
+    if (paywalled(res, data)) return;
     if (!res.ok) return setError(data.error ?? "ההפקה לא התחילה");
     setVideos((v) => [data.video, ...(v ?? [])]);
   };
@@ -55,6 +65,15 @@ export function Videos({ kitId }: { kitId: string }) {
       <div>
         <h2 className="text-xl font-black">סרטונים</h2>
         <p className="text-sm text-muted">בגודל סטורי, עם קריינות בעברית, כתוביות ומוזיקה מקורית. כל סרטון לוקח כ־3 דקות.</p>
+        {account && (
+          <p className="mt-1 text-sm font-semibold text-brand">
+            {paid
+              ? `כל סרטון: ${COST.video} קרדיטים`
+              : account.freeVideoUsed
+                ? "🔒 הסרטון לדוגמה כבר נוצר. סרטונים נוספים כלולים במסלולים בתשלום."
+                : "במסלול החינמי: סרטון פרומו אחד לדוגמה, עם חותמת."}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3 rounded-3xl border border-border bg-surface p-5">
@@ -81,7 +100,9 @@ export function Videos({ kitId }: { kitId: string }) {
               disabled={starting !== null}
               className="rounded-2xl bg-gradient-to-l from-brand to-brand-strong p-4 text-right text-white shadow-lg shadow-brand/20 transition hover:brightness-110 disabled:opacity-60"
             >
-              <span className="block text-lg font-black">🎬 {starting === k ? "מתחיל…" : `הפקת ${KINDS[k].name}`}</span>
+              <span className="block text-lg font-black">
+                {account && !paid && (account.freeVideoUsed || k !== "promo") ? "🔒" : "🎬"} {starting === k ? "מתחיל…" : `הפקת ${KINDS[k].name}`}
+              </span>
               <span className="block text-sm text-white/80">{KINDS[k].note}</span>
             </button>
           ))}
