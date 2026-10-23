@@ -58,6 +58,7 @@ export type Video = {
   error: string | null;
   created_at: string;
   storyboard: Storyboard | null;
+  edited_from?: string | null; // a version made in the video editor
 };
 
 const field =

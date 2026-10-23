@@ -125,6 +125,7 @@ export async function prepareVideo(
     scenes,
     music,
     captions: opts.storyboard.captions,
+    musicVolume: 1,
     sfx,
     backdrops: blurred,
   };

@@ -76,11 +76,12 @@ export const sampleVideo: VideoProps = {
   design: brickBoss,
   cover: "cinematic-poster",
   captions: "bold",
+  musicVolume: 1,
   scenes: [
-    { role: "hook", visual: "scene", title: "הכסף נמצא בעסקה", sub: "", items: [], voice: "", lead: 8, emphasis: ["משקיעים"], words: timed("הכירו את בריק בוס, הדרך שלך ללוות משקיעים"), durationInFrames: 110, cuts: [55], transition: "flash" },
-    { role: "intro", visual: "cover", title: "BRICK BOSS", sub: "", items: [], voice: "", lead: 4, emphasis: [], words: [], durationInFrames: 90, cuts: [], transition: "zoom" },
-    { role: "lecturer", visual: "lecturer", title: "עשרים שנה בשוק", sub: "מלווה משקיעים", items: [], voice: "", lead: 4, emphasis: ["עשרים"], words: timed("עשרים שנה בשוק הנדל״ן, עכשיו זה התור שלך"), durationInFrames: 120, cuts: [60], transition: "cut" },
-    { role: "outcomes", visual: "list", title: "מה תלמדו", sub: "", items: brickBoss.copy.bullets, voice: "", lead: 4, emphasis: [], words: [], durationInFrames: 120, cuts: [], transition: "fade" },
-    { role: "cta", visual: "logo", title: "מקומות אחרונים", sub: "", items: [], voice: "", lead: 4, emphasis: [], words: [], durationInFrames: 110, cuts: [], transition: "cut" },
+    { role: "hook", visual: "scene", title: "הכסף נמצא בעסקה", sub: "", items: [], voice: "", lead: 8, emphasis: ["משקיעים"], words: timed("הכירו את בריק בוס, הדרך שלך ללוות משקיעים"), durationInFrames: 110, cuts: [55], calm: false, transition: "flash" },
+    { role: "intro", visual: "cover", title: "BRICK BOSS", sub: "", items: [], voice: "", lead: 4, emphasis: [], words: [], durationInFrames: 90, cuts: [], calm: false, transition: "zoom" },
+    { role: "lecturer", visual: "lecturer", title: "עשרים שנה בשוק", sub: "מלווה משקיעים", items: [], voice: "", lead: 4, emphasis: ["עשרים"], words: timed("עשרים שנה בשוק הנדל״ן, עכשיו זה התור שלך"), durationInFrames: 120, cuts: [60], calm: false, transition: "cut" },
+    { role: "outcomes", visual: "list", title: "מה תלמדו", sub: "", items: brickBoss.copy.bullets, voice: "", lead: 4, emphasis: [], words: [], durationInFrames: 120, cuts: [], calm: false, transition: "fade" },
+    { role: "cta", visual: "logo", title: "מקומות אחרונים", sub: "", items: [], voice: "", lead: 4, emphasis: [], words: [], durationInFrames: 110, cuts: [], calm: false, transition: "cut" },
   ],
 };

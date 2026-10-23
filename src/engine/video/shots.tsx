@@ -31,7 +31,7 @@ const fonts = (d: DesignProps) => ({
 export function useAngle(scene: Scene) {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const cuts = scene.cuts ?? [];
+  const cuts = scene.calm ? [] : (scene.cuts ?? []);
   let angle = 0;
   while (angle < cuts.length && frame >= cuts[angle]) angle++;
   const from = angle ? cuts[angle - 1] : 0;
@@ -52,7 +52,8 @@ const FRAMINGS = [
 const Camera: React.FC<{ src: string; scene: Scene; focus?: [number, number]; filter?: string; kind: ShotProps["kind"] }> = ({ src, scene, focus = [50, 42], filter, kind }) => {
   const { angle, local, span } = useAngle(scene);
   const k = Math.min(1, local / span);
-  const energy = kind === "marketing" ? 1.4 : 1;
+  // A calm beat holds its picture still.
+  const energy = scene.calm ? 0 : kind === "marketing" ? 1.4 : 1;
   const f = FRAMINGS[angle % FRAMINGS.length];
   const scale = f.scale + f.grow * k * energy;
   const drift = angle ? (k - 0.5) * 2.4 * energy * (angle % 2 ? 1 : -1) : 0;
@@ -551,7 +552,7 @@ export const Shot: React.FC<ShotProps> = (p) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   // A small punch-in of the camera on each word the narration stresses.
-  const hot = new Set(p.scene.emphasis.map((w) => w.replace(/[.,!?:;…"״׳']/g, "")));
+  const hot = new Set(p.scene.calm ? [] : p.scene.emphasis.map((w) => w.replace(/[.,!?:;…"״׳']/g, "")));
   const punch = p.scene.words
     .filter((w) => hot.has(w.text.replace(/[.,!?:;…"״׳']/g, "")))
     .reduce((a, w) => {

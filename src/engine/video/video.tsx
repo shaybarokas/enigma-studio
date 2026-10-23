@@ -23,7 +23,7 @@ const ahead = (s: Scene, frames: number): Scene => ({
 });
 const MUSIC_OPEN = 0.3;
 
-const Video: React.FC<VideoProps> = ({ kind, design, cover, scenes, music, captions, sfx, backdrops }) => {
+const Video: React.FC<VideoProps> = ({ kind, design, cover, scenes, music, captions, sfx, backdrops, musicVolume: level = 1 }) => {
   const { durationInFrames, fps } = useVideoConfig();
   const capFont = fontFamily(design.brand.headlineFont as FontName);
   const starts = sceneStarts(scenes);
@@ -35,7 +35,7 @@ const Video: React.FC<VideoProps> = ({ kind, design, cover, scenes, music, capti
     const bed = interpolate(gap, [0, 10], [MUSIC_UNDER_VOICE, MUSIC_OPEN], { extrapolateRight: "clamp" });
     const fadeIn = interpolate(f, [0, fps * 0.4], [0.4, 1], { extrapolateRight: "clamp" });
     const fadeOut = interpolate(f, [durationInFrames - fps * 1.5, durationInFrames - 1], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-    return bed * fadeIn * fadeOut;
+    return bed * fadeIn * fadeOut * level;
   };
 
   // Sound effects at their moments.

@@ -8,6 +8,7 @@ import {
   type Storyboard,
 } from "@/lib/video/storyboard";
 import { VOICES } from "@/lib/video/voices";
+import { videoSchema } from "@/engine/video/schema";
 
 async function draft(kitId: string, vid: string) {
   const { supabase, user } = await getUserAndClient();
@@ -29,6 +30,19 @@ async function draft(kitId: string, vid: string) {
     user,
     video: data as { id: string; status: string; storyboard: Storyboard },
   };
+}
+
+// A video with its render spec, for the video editor.
+export async function GET(_req: Request, ctx: RouteContext<"/api/kits/[id]/videos/[vid]">) {
+  const { id, vid } = await ctx.params;
+  const { supabase, user } = await getUserAndClient();
+  if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
+  const { data } = await supabase.from("videos").select(`${VIDEO_FIELDS}, spec`).eq("id", vid).eq("kit_id", id).maybeSingle();
+  if (!data) return NextResponse.json({ error: "הסרטון לא נמצא" }, { status: 404 });
+  // Specs saved before a field existed get its default here, as the render gets them; one the
+  // current engine can't read at all comes back as null (the editor can't open it).
+  const spec = videoSchema.safeParse(data.spec);
+  return NextResponse.json({ video: { ...data, spec: spec.success ? spec.data : null } });
 }
 
 // The user's edits to the storyboard (every word, the order, visuals, voice, music, captions).

@@ -44,6 +44,7 @@ export const sceneSchema = z.object({
   words: z.array(wordSchema).default([]), // seconds from the scene's start (lead included)
   durationInFrames: z.number(),
   cuts: z.array(z.number()).default([]), // camera cuts inside the beat (frames from its start): each starts a new angle
+  calm: z.boolean().default(false), // set in the video editor: no camera moves, cuts or punch-ins in this beat
   transition: z.enum(TRANSITIONS).default("cut"), // into the next beat
 });
 export type Scene = z.infer<typeof sceneSchema>;
@@ -57,6 +58,7 @@ export const videoSchema = z.object({
   scenes: z.array(sceneSchema),
   music: z.string().optional(),
   captions: z.enum(CAPTION_STYLES).default("bold"),
+  musicVolume: z.number().min(0).max(2).default(1), // the editor's music level (1 = as mixed)
   sfx: sfxSchema.optional(),
   // The kit's scene blurred ahead of time (soft: behind the lecturer; deep: behind lists and cards):
   // a CSS blur redrawn on every frame would slow the render several times over.

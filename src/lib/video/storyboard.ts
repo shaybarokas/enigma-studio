@@ -12,7 +12,7 @@ import { ambiguousWords } from "./homographs";
 import { reviewForSpeech } from "./script";
 
 /** The video row as the studio reads it. */
-export const VIDEO_FIELDS = "id, kind, voice, status, url, error, created_at, storyboard";
+export const VIDEO_FIELDS = "id, kind, voice, status, url, error, created_at, storyboard, edited_from";
 
 export { BEAT_ROLES, ROLE_LABELS, VISUALS, VISUAL_LABELS, CAPTION_STYLES, CAPTION_LABELS } from "./storyboard-ui";
 import { type CourseClip, BEAT_PADDING, BEAT_ROLES, CAPTION_STYLES, LENGTH, VISUALS, WORDS_PER_SECOND, estimateSeconds } from "./storyboard-ui";

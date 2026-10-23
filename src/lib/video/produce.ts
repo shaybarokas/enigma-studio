@@ -6,7 +6,37 @@ import { refund } from "../credits";
 import { COST } from "../plans";
 import { renderSandbox } from "../render/sandbox";
 import { createAdminClient } from "../supabase/admin";
+import type { VideoProps } from "@/engine/video/schema";
 import { prepareVideo, type Production } from "./prepare";
+
+/** Renders a spec in the cloud and stores the MP4; returns its public URL. */
+export async function renderToStorage(
+  spec: VideoProps,
+  path: string,
+): Promise<string> {
+  const db = createAdminClient();
+  const sandbox = await renderSandbox();
+  try {
+    const { sandboxFilePath } = await renderMediaOnVercel({
+      sandbox,
+      compositionId: "video",
+      inputProps: spec as unknown as Record<string, unknown>,
+      codec: "h264",
+      concurrency: 8, // one tab per vCPU of the sandbox
+      crf: 20,
+      timeoutInMilliseconds: 600_000,
+    });
+    const data = await sandbox.readFileToBuffer({ path: sandboxFilePath });
+    if (!data) throw new Error("render produced no file");
+    const { error } = await db.storage
+      .from("kit-assets")
+      .upload(path, data, { contentType: "video/mp4", upsert: true });
+    if (error) throw new Error(`storage: ${error.message}`);
+    return db.storage.from("kit-assets").getPublicUrl(path).data.publicUrl;
+  } finally {
+    await sandbox.stop().catch(() => {});
+  }
+}
 
 export async function produceVideo(opts: Production) {
   const db = createAdminClient();
@@ -17,37 +47,19 @@ export async function produceVideo(opts: Production) {
   try {
     const spec = await prepareVideo(opts, (status) => set({ status }));
     // AI clips that couldn't be made play as their stills; their credits go back now.
-    const missing = opts.storyboard.beats.filter((b) => b.visual === "scene" && b.motion).length - spec.scenes.filter((x) => x.motion).length;
+    const missing =
+      opts.storyboard.beats.filter((b) => b.visual === "scene" && b.motion)
+        .length - spec.scenes.filter((x) => x.motion).length;
     if (missing > 0 && opts.cost) {
       await refund(opts.userId, missing * COST.motion, opts.videoId);
       opts = { ...opts, cost: opts.cost - missing * COST.motion };
     }
     await set({ status: "rendering", spec });
 
-    const sandbox = await renderSandbox();
-    try {
-      const { sandboxFilePath } = await renderMediaOnVercel({
-        sandbox,
-        compositionId: "video",
-        inputProps: spec as unknown as Record<string, unknown>,
-        codec: "h264",
-        concurrency: 8, // one tab per vCPU of the sandbox
-        crf: 20,
-        timeoutInMilliseconds: 600_000,
-      });
-      const data = await sandbox.readFileToBuffer({ path: sandboxFilePath });
-      if (!data) throw new Error("render produced no file");
-      const path = `${folder}/${opts.storyboard.kind}.mp4`;
-      const { error } = await db.storage
-        .from("kit-assets")
-        .upload(path, data, { contentType: "video/mp4", upsert: true });
-      if (error) throw new Error(`storage: ${error.message}`);
-      const url = db.storage.from("kit-assets").getPublicUrl(path)
-        .data.publicUrl;
-      await set({ status: "ready", url });
-    } finally {
-      await sandbox.stop().catch(() => {});
-    }
+    await set({
+      status: "ready",
+      url: await renderToStorage(spec, `${folder}/${opts.storyboard.kind}.mp4`),
+    });
   } catch (e) {
     await alertOwner(
       "video:failed",

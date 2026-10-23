@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { LENGTH } from "@/lib/video/storyboard-ui";
 import { CourseClips } from "./clips";
 import { StoryboardEditor, type Video } from "./storyboard";
+import { VideoEditor } from "./video-editor";
+import type { VideoProps } from "@/engine/video/schema";
 import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
 import { paywalled, refreshAccount, useAccount } from "@/components/account";
@@ -88,6 +90,25 @@ export function Videos({
     setOpen(data.video.id);
   };
 
+  // The video editor opens on a finished video with its render spec (videos made by the older
+  // engine have none it can edit: they get a new version from the script instead).
+  const [editing2, setEditing2] = useState<{
+    video: Video;
+    spec: VideoProps;
+  } | null>(null);
+  const openEditor = async (v: Video) => {
+    setError("");
+    const res = await fetch(`/api/kits/${kitId}/videos/${v.id}`).catch(
+      () => null,
+    );
+    const data = await res?.json().catch(() => ({}));
+    const spec = data?.video?.spec as VideoProps | undefined;
+    if (!res?.ok || !spec?.scenes?.[0]?.role)
+      return setError(
+        "את הסרטון הזה אי אפשר לערוך בעורך (הופק בגרסה קודמת). אפשר ליצור גרסה חדשה מהתסריט.",
+      );
+    setEditing2({ video: v, spec });
+  };
   const reopen = async (v: Video) => {
     setError("");
     const res = await fetch(`/api/kits/${kitId}/videos/${v.id}`, {
@@ -238,20 +259,31 @@ export function Videos({
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 p-3">
                 <div className="me-auto">
-                  <p className="text-sm font-bold">{KINDS[v.kind].name}</p>
+                  <p className="text-sm font-bold">
+                    {KINDS[v.kind].name}
+                    {v.edited_from ? " · גרסה ערוכה" : ""}
+                  </p>
                   <p className="text-xs text-muted">
                     קול:{" "}
                     {VOICES[v.voice as keyof typeof VOICES]?.name ?? v.voice}
                   </p>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {v.status === "ready" && (
+                    <button
+                      onClick={() => openEditor(v)}
+                      className="rounded-full border border-brand px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/10"
+                    >
+                      ✂️ עריכה
+                    </button>
+                  )}
                   {v.storyboard &&
                     (v.status === "ready" || v.status === "failed") && (
                       <button
                         onClick={() => reopen(v)}
                         className="rounded-full border border-border px-3 py-1.5 text-xs font-bold hover:border-brand"
                       >
-                        {v.status === "failed" ? "חזרה לתסריט" : "✎ גרסה חדשה"}
+                        {v.status === "failed" ? "חזרה לתסריט" : "✎ מהתסריט"}
                       </button>
                     )}
                   {v.status === "ready" && v.url && (
@@ -267,6 +299,18 @@ export function Videos({
             </li>
           ))}
         </ul>
+      )}
+      {editing2 && (
+        <VideoEditor
+          kitId={kitId}
+          video={editing2.video}
+          initial={editing2.spec}
+          onClose={() => setEditing2(null)}
+          onCreated={(nv) => {
+            setVideos((vs) => [nv, ...(vs ?? [])]);
+            setEditing2(null);
+          }}
+        />
       )}
     </section>
   );

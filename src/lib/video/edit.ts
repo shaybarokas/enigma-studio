@@ -102,6 +102,7 @@ export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: st
       lead: Math.round(lead),
       durationInFrames: Math.round(durationInFrames),
       cuts: innerCuts(v, Math.round(lead)),
+      calm: false,
       insert: inserts[v.beat.id],
       transition: transitions[i],
     } satisfies Scene;

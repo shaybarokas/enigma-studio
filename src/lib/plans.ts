@@ -29,6 +29,7 @@ export const COST = {
   editWithScene: 4, // a change that paints a new background
   video: 20, // a narrated, scored, rendered video of 35–60 seconds
   motion: 4, // a scene of the video brought to life as an AI video clip (on top of the video)
+  videoEdit: 4, // a new version of a finished video from the video editor (re-render, changed lines re-recorded)
 } as const;
 
 /** Credit packs for when the month's allowance runs out. They never expire. */
