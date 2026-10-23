@@ -11,3 +11,16 @@ export function fitLines(lines: string[], withinWidth: number, fontFamily: strin
     );
   return sizes.length ? Math.min(...sizes) : Infinity;
 }
+
+/** Text broken into at most two lines of balanced length (at a space). */
+export function balancedLines(text: string): string[] {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 2 || text.length <= 12) return [words.join(" ")];
+  let best = 1;
+  let diff = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const d = Math.abs(words.slice(0, i).join(" ").length - words.slice(i).join(" ").length);
+    if (d < diff) [best, diff] = [i, d];
+  }
+  return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+}

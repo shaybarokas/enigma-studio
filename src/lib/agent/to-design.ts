@@ -22,6 +22,7 @@ export function conceptToDesign(
       headline: c.headline,
       subtitle: c.subtitle,
       bullets: c.bullets.slice(0, 6),
+      icons: c.icons.slice(0, 6),
       tags: c.tags.slice(0, 3),
       cta: c.cta,
       price: extra.price ?? undefined,

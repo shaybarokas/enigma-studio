@@ -1,6 +1,7 @@
 // Three creative directions from a brief: each picks a template, builds a brand (palette + fonts),
 // writes the copy and the prompts for the AI art that the asset pipeline will generate.
 import { z } from "zod";
+import { ICON_KEYS } from "@/engine/icon-keys";
 import { CATALOG, COVER_TEMPLATE_IDS } from "@/engine/catalog";
 import { FONT_NAMES } from "@/engine/fonts-list";
 import { structured } from "../ai/claude";
@@ -24,6 +25,7 @@ export const conceptSchema = z.object({
   headline: z.string().describe("Hebrew hook; '|' splits the ink part from the accent part"),
   subtitle: z.string(),
   bullets: z.array(z.string()).describe("3–5 concrete outcomes/topics, short"),
+  icons: z.array(z.enum(ICON_KEYS)).describe("one icon per bullet, in the same order: the icon that best shows that outcome"),
   tags: z.array(z.string()).describe("0–2 short pills"),
   cta: z.string(),
   backgroundPrompt: z.string().describe("English prompt for the scene"),

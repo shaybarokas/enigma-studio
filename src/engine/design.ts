@@ -9,6 +9,7 @@ export const copySchema = z.object({
   headline: z.string(), // big Hebrew hook; "|" splits ink from accent: "אני יודע|שאתה משקר!"
   subtitle: z.string(), // the promise
   bullets: z.array(z.string()).max(6).default([]), // what's inside / outcomes
+  icons: z.array(z.string()).max(6).default([]), // an icon key (engine/icons) for each bullet
   tags: z.array(z.string()).max(3).default([]), // small pills: "שוק ההון", "קריפטו"
   cta: z.string().default("להרשמה"),
   price: z.string().optional(), // "₪649"

@@ -2,7 +2,7 @@
 // another and the key word gets a highlight; in a promo the lines rise out of a mask and the letters
 // settle, like a trailer card. Every title is measured and sized to fit its zone: nothing is cut.
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { fitLines } from "../fit";
+import { balancedLines, fitLines } from "../fit";
 import { alpha } from "../fx";
 import { inkOn } from "../parts";
 
@@ -14,18 +14,7 @@ export const ZONES = {
   captions: 0.735, // centre line of the captions
 } as const;
 
-/** A title broken into at most two balanced lines. */
-export function titleLines(text: string): string[] {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= 2 || text.length <= 12) return [words.join(" ")];
-  let best = 1;
-  let diff = Infinity;
-  for (let i = 1; i < words.length; i++) {
-    const d = Math.abs(words.slice(0, i).join(" ").length - words.slice(i).join(" ").length);
-    if (d < diff) [best, diff] = [i, d];
-  }
-  return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
-}
+export const titleLines = balancedLines;
 
 const clean = (s: string) => s.replace(/[.,!?:;…"״׳']/g, "");
 
@@ -174,12 +163,7 @@ export const KineticTitle: React.FC<TitleProps> = ({ text, sub, zone, font, subF
   );
 };
 
-/** A price split so it is read at once: the number big, the currency and any words beside/under it. */
-export function splitPrice(text: string): { number: string; rest: string } | null {
-  const m = text.match(/(₪\s?[\d,.]+|[\d,.]+\s?₪|[\d,.]{2,}\s?(?:ש״ח|שח|שקלים))/);
-  if (!m) return null;
-  return { number: m[1].replace(/\s+/g, ""), rest: text.replace(m[1], "").replace(/\s+/g, " ").trim() };
-}
+export { splitPrice } from "../price";
 
 export const PriceTitle: React.FC<{ price: string; rest: string; zone: { top: number; height: number }; font: string; subFont: string; ink: string; accent: string; delay?: number }> = ({
   price,
