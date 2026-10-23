@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { alertOwner } from "@/lib/alert";
 import { getUserAndClient } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { clipFolder, MAX_CLIPS } from "@/lib/video/clip-files";
+import { clipFolder, MAX_CLIPS, MAX_THUMBS } from "@/lib/video/clip-files";
 import { analyzeClip } from "@/lib/video/clips";
 import type { CourseClip } from "@/lib/video/storyboard-ui";
 
@@ -49,7 +49,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/clips
   const source = files?.find((f) => f.name.startsWith("source."));
   if (!source) return NextResponse.json({ error: "הסרטון לא הגיע. נסו להעלות שוב." }, { status: 400 });
   const url = (path: string) => storage.getPublicUrl(path).data.publicUrl;
-  const times = (body.thumbs ?? []).slice(0, 12);
+  const times = (body.thumbs ?? []).slice(0, MAX_THUMBS);
   const clip: CourseClip = {
     id: clipId,
     url: url(`${folder}/${source.name}`),

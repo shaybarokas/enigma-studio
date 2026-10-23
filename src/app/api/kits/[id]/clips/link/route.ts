@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CLIP_EXT, clipFolder, MAX_CLIP_MB } from "@/lib/video/clip-files";
+import { CLIP_EXT, clipFolder, LINK_MAX_MB } from "@/lib/video/clip-files";
 
 export const maxDuration = 300;
 
@@ -33,10 +33,10 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/clips
   if (!res?.ok || !(type in CLIP_EXT))
     return NextResponse.json({ error: "בקישור הזה אין קובץ וידאו ישיר (MP4, MOV או WebM). אפשר להוריד את הקטע ולהעלות אותו." }, { status: 400 });
   const size = Number(res.headers.get("content-length") ?? 0);
-  if (size > MAX_CLIP_MB * 1024 * 1024) return NextResponse.json({ error: `הסרטון גדול מ־${MAX_CLIP_MB}MB. העלו קטע קצר יותר.` }, { status: 400 });
+  if (size > LINK_MAX_MB * 1024 * 1024) return NextResponse.json({ error: `הסרטון בקישור גדול מ־${LINK_MAX_MB}MB. הורידו אותו והעלו אותו כקובץ (עד 2GB).` }, { status: 400 });
 
   const data = Buffer.from(await res.arrayBuffer());
-  if (data.length > MAX_CLIP_MB * 1024 * 1024) return NextResponse.json({ error: `הסרטון גדול מ־${MAX_CLIP_MB}MB. העלו קטע קצר יותר.` }, { status: 400 });
+  if (data.length > LINK_MAX_MB * 1024 * 1024) return NextResponse.json({ error: `הסרטון בקישור גדול מ־${LINK_MAX_MB}MB. הורידו אותו והעלו אותו כקובץ (עד 2GB).` }, { status: 400 });
   const clipId = randomUUID();
   const storage = createAdminClient().storage.from("kit-assets");
   const path = `${clipFolder(user.id, id, clipId)}/source.${CLIP_EXT[type]}`;

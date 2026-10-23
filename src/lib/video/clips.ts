@@ -60,7 +60,8 @@ export async function analyzeClip(clip: CourseClip): Promise<CourseClip> {
     system: `You are the editor of course promos. You see frames from a clip of the course (each labelled with its time) and its transcript, and you mark the moments worth cutting into a promo or a marketing video:
 - Picture moments (quote=false): 2–5 seconds of something that shows the course alive (hands at work, the lecturer explaining at the board, a result, students reacting). Choose times between the frames that show it.
 - Quote moments (quote=true): 3–9 seconds where the lecturer says one strong, complete sentence that would make a viewer want the course. Start and end exactly on the transcript's word times, never mid-word or mid-sentence.
-Never pick moments with blank screens, menus, cursor-only screen shares or someone off-guard.`,
+Never pick moments with blank screens, menus, cursor-only screen shares or someone off-guard.
+A clip may be a whole recorded lesson (often a landscape screen of slides with the lecturer): then the transcript is your main guide. Read all of it and pick the lecturer's strongest sentences across the whole lesson, not only the opening, and picture moments only where a frame shows something worth seeing (a demonstration, a result, the lecturer on camera), not a slide of plain text.`,
     messages: [
       {
         role: "user",
