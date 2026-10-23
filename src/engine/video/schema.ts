@@ -18,6 +18,10 @@ export const sceneSchema = z.object({
   audio: z.string().optional(),
   words: z.array(wordSchema).default([]),
   durationInFrames: z.number(),
+  // The approved storyboard's own words for this scene, over the design's defaults.
+  title: z.string().optional(),
+  sub: z.string().optional(),
+  items: z.array(z.string()).optional(),
 });
 export type Scene = z.infer<typeof sceneSchema>;
 

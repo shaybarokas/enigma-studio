@@ -8,12 +8,11 @@ import {
   type Scene,
   type VideoProps,
 } from "@/engine/video/schema";
-import type { Brief } from "../agent/brief";
 import { renderSandbox } from "../render/sandbox";
 import { refund } from "../credits";
 import { createAdminClient } from "../supabase/admin";
 import { compose, speak, type VoiceKey } from "./audio";
-import { writeVideoScript } from "./script";
+import type { Beat, Storyboard } from "./storyboard";
 import { prepareSpeech } from "./speech";
 import { alertOwner } from "../alert";
 
@@ -27,13 +26,28 @@ const MIN_SECONDS: Record<Scene["type"], number> = {
   cta: 3.2,
 };
 
+// Until the beat-based editing engine lands, each beat plays as the scene closest to its role.
+const SCENE_FOR: Record<Beat["role"], Scene["type"]> = {
+  hook: "hook",
+  pain: "hook",
+  intro: "cover",
+  solution: "cover",
+  lecturer: "hero",
+  proof: "hero",
+  glimpse: "hero",
+  outcomes: "bullets",
+  offer: "cta",
+  cta: "cta",
+};
+const sceneFor = (b: Beat): Scene["type"] =>
+  b.visual === "list" ? "bullets" : b.visual === "props" ? "props" : b.visual === "cover" ? "cover" : b.visual === "lecturer" && SCENE_FOR[b.role] === "hook" ? "hero" : SCENE_FOR[b.role];
+
 export async function produceVideo(opts: {
   videoId: string;
   userId: string;
   kitId: string;
-  kind: "promo" | "marketing";
+  storyboard: Storyboard; // approved by the user: produced exactly as written
   voice: VoiceKey;
-  brief: Brief | null;
   design: DesignProps;
   cover: string;
   cost: number; // credits to give back if the production fails
@@ -44,7 +58,7 @@ export async function produceVideo(opts: {
   const folder = `${opts.userId}/${opts.kitId}/videos/${opts.videoId}`;
 
   try {
-    const script = await writeVideoScript(opts.kind, opts.brief, opts.design);
+    const beats = opts.storyboard.beats;
     await set({ status: "voicing" });
 
     // One line at a time: ElevenLabs refuses parallel requests on a library voice it is still
@@ -53,18 +67,22 @@ export async function produceVideo(opts: {
     // default: v4 reads plain Hebrew well, and the script review already removes ambiguous words.
     const spoken =
       process.env.SPEECH_NIQQUD === "1"
-        ? await prepareSpeech(script.scenes.map((s) => s.voice))
-        : script.scenes.map((s) => s.voice);
+        ? await prepareSpeech(beats.map((b) => b.voice))
+        : beats.map((b) => b.voice);
     const voiced: Scene[] = [];
-    for (const [i, s] of script.scenes.entries()) {
+    for (const [i, b] of beats.entries()) {
       voiced.push(
         await (async () => {
-          const v = await speak(spoken[i], s.voice, opts.voice, `${folder}/vo-${i}.mp3`);
-          const seconds = Math.max(MIN_SECONDS[s.type], v.seconds + 0.55);
+          const type = sceneFor(b);
+          const v = await speak(spoken[i], b.voice, opts.voice, `${folder}/vo-${i}.mp3`);
+          const seconds = Math.max(MIN_SECONDS[type], v.seconds + 0.55);
           return {
-            type: s.type,
-            voice: s.voice,
-            emphasis: s.emphasis,
+            type,
+            voice: b.voice,
+            emphasis: b.emphasis.filter((w) => b.voice.includes(w)),
+            title: b.title || undefined,
+            sub: b.sub || undefined,
+            items: b.items.length ? b.items : undefined,
             audio: v.url,
             words: v.words,
             durationInFrames: Math.ceil(seconds * FPS),
@@ -74,18 +92,18 @@ export async function produceVideo(opts: {
     }
     const total = videoDuration(voiced) / FPS;
     const music = await compose(
-      script.musicPrompt,
+      opts.storyboard.music,
       total + 1,
       `${folder}/music.mp3`,
     );
 
     const spec: VideoProps = {
-      kind: opts.kind,
+      kind: opts.storyboard.kind,
       design: opts.design,
       cover: opts.cover,
       scenes: voiced,
       music,
-      captions: true,
+      captions: opts.storyboard.captions !== "off",
     };
     await set({ status: "rendering", spec });
 
@@ -101,7 +119,7 @@ export async function produceVideo(opts: {
       });
       const data = await sandbox.readFileToBuffer({ path: sandboxFilePath });
       if (!data) throw new Error("render produced no file");
-      const path = `${folder}/${opts.kind}.mp4`;
+      const path = `${folder}/${opts.storyboard.kind}.mp4`;
       const { error } = await db.storage
         .from("kit-assets")
         .upload(path, data, { contentType: "video/mp4", upsert: true });

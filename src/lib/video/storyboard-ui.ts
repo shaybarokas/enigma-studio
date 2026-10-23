@@ -1,0 +1,50 @@
+// The storyboard's vocabulary, safe for the browser: roles, visuals, caption styles, music presets,
+// and the length estimate the editor shows while the user types.
+
+export const BEAT_ROLES = ["hook", "intro", "lecturer", "pain", "solution", "glimpse", "outcomes", "proof", "offer", "cta"] as const;
+export type BeatRole = (typeof BEAT_ROLES)[number];
+export const ROLE_LABELS: Record<BeatRole, string> = {
+  hook: "הוק",
+  intro: "חשיפת השם",
+  lecturer: "המרצה",
+  pain: "הכאב",
+  solution: "הפתרון",
+  glimpse: "הצצה לקורס",
+  outcomes: "מה מקבלים",
+  proof: "הוכחה",
+  offer: "ההצעה",
+  cta: "הנעה לפעולה",
+};
+
+export const VISUALS = ["lecturer", "scene", "cover", "props", "list", "logo"] as const;
+export type Visual = (typeof VISUALS)[number];
+export const VISUAL_LABELS: Record<Visual, string> = {
+  lecturer: "המרצה",
+  scene: "הסצנה מעולם התוכן",
+  cover: "גרפיקת התצוגה",
+  props: "האביזרים",
+  list: "רשימה על המסך",
+  logo: "הלוגו",
+};
+
+export const CAPTION_STYLES = ["bold", "box", "minimal", "off"] as const;
+export type CaptionStyle = (typeof CAPTION_STYLES)[number];
+export const CAPTION_LABELS: Record<CaptionStyle, string> = { bold: "בולטות", box: "בתיבה", minimal: "עדינות", off: "בלי כתוביות" };
+
+/** Music the user can pick instead of the agent's suggestion (Hebrew label → prompt for the composer). */
+export const MUSIC_PRESETS: { label: string; prompt: string }[] = [
+  { label: "טריילר קולנועי דרמטי", prompt: "epic cinematic hybrid trailer, deep pulses, braams and hits, rising tension, 95 bpm, instrumental" },
+  { label: "אנרגטי ומודרני", prompt: "modern energetic electronic pop, punchy drums, bright synths, driving groove, 120 bpm, instrumental" },
+  { label: "חם ומעורר השראה", prompt: "warm inspiring cinematic piano and strings, uplifting build, hopeful, 90 bpm, instrumental" },
+  { label: "יוקרתי ומינימלי", prompt: "luxury minimal deep house, smooth bass, elegant and restrained, 110 bpm, instrumental" },
+  { label: "פופ קצבי לרשתות", prompt: "catchy upbeat pop beat for social reels, claps and plucks, playful, 124 bpm, instrumental" },
+  { label: "מתח ואקשן", prompt: "dark tense action score, ticking percussion, low drones, hits on downbeats, 100 bpm, instrumental" },
+];
+
+/** How long each kind should run, in seconds. */
+export const LENGTH: Record<"promo" | "marketing", [number, number]> = { promo: [35, 45], marketing: [40, 60] };
+
+// Hebrew narration runs about 2.3 words a second; each beat also breathes a little.
+export const WORDS_PER_SECOND = 2.3;
+export const beatSeconds = (b: { voice: string }) => b.voice.trim().split(/\s+/).filter(Boolean).length / WORDS_PER_SECOND + 0.5;
+export const estimateSeconds = (sb: { beats: { voice: string }[] }) => Math.round(sb.beats.reduce((a, b) => a + beatSeconds(b), 0));

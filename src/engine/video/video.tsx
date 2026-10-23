@@ -109,7 +109,17 @@ const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
 // Covers whose main text sits where the captions run lose it in the opening scene.
 const COVER_HIDE: Partial<Record<TemplateId, string[]>> = { "split-editorial": ["headline"], "arch-luxe": ["wordmark"] };
 
-function SceneVisual({ scene, design, cover }: { scene: Scene; design: DesignProps; cover: TemplateId }) {
+function SceneVisual({ scene, design: base, cover }: { scene: Scene; design: DesignProps; cover: TemplateId }) {
+  // The storyboard's words for this scene replace the design's (the user approved them).
+  const design: DesignProps = {
+    ...base,
+    copy: {
+      ...base.copy,
+      ...(scene.title ? { headline: scene.title } : {}),
+      ...(scene.sub ? { subtitle: scene.sub } : {}),
+      ...(scene.items?.length ? { bullets: scene.items } : {}),
+    },
+  };
   const d = withHidden(design, [...(HIDE_FOR_CAPTIONS[scene.type] ?? []), ...(scene.type === "cover" ? (COVER_HIDE[cover] ?? []) : [])]);
   switch (scene.type) {
     case "cover": {
