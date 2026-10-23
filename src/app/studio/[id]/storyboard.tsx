@@ -32,6 +32,7 @@ export type Beat = {
   sub: string;
   items: string[];
   visual: Visual;
+  shot?: string;
   emphasis: string[];
 };
 export type Storyboard = {
@@ -448,6 +449,19 @@ export function StoryboardEditor({
                   <p className="text-xs text-amber-600">
                     כותרת ארוכה תופיע קטנה יותר. עדיף עד 5 מילים.
                   </p>
+                )}
+                {b.visual === "scene" && (
+                  <label className="block space-y-1">
+                    <span className="text-xs font-bold text-muted">
+                      🎥 מה המצלמה רואה (תמונה שתיווצר לרגע הזה)
+                    </span>
+                    <input
+                      className={field}
+                      value={b.shot ?? ""}
+                      onChange={(e) => setBeat(b.id, { shot: e.target.value })}
+                      placeholder="למשל: ידיים מקפלות בצק על משטח עץ, אור חלון רך"
+                    />
+                  </label>
                 )}
                 {b.visual === "list" && (
                   <label className="block space-y-1">

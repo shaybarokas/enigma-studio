@@ -38,7 +38,7 @@ async function snapshotFor(version: string): Promise<string> {
 /** A ready-to-render sandbox. Stop it when done. */
 export async function renderSandbox(): Promise<Sandbox> {
   const snapshotId = await snapshotFor(bundleVersion());
-  return Sandbox.create({ source: { type: "snapshot", snapshotId }, resources: { vcpus: 4 }, timeout: RUN_TIMEOUT });
+  return Sandbox.create({ source: { type: "snapshot", snapshotId }, resources: { vcpus: 8 }, timeout: RUN_TIMEOUT });
 }
 
 /** Makes sure this deploy's snapshot exists (called once after deploy so users never wait for it). */

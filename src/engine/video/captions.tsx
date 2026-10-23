@@ -1,14 +1,22 @@
-// Kinetic captions in the style of Enigma's promos: two to four bold words at a time, centred,
-// popping in on the beat of the narration, with the key word in the brand's accent colour.
+// Captions in the style the user picked: "bold" (big white words with an outline, the key word in
+// the accent), "box" (white on a dark rounded box, for busy pictures) or "minimal" (smaller, calm, for
+// premium videos). They always sit in their own zone, under the titles and above the platform's
+// buttons, and break into bites short enough to read at a glance.
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { fitLines } from "../fit";
 import { alpha } from "../fx";
 import { inkOn, luminance } from "../parts";
+import { ZONES } from "./kinetic";
 import type { Scene } from "./schema";
 
+type Style = "bold" | "box" | "minimal";
 type Chunk = { words: Scene["words"]; start: number; end: number };
 
-// Breaks after punctuation, a long word, or four words: short bites that read at a glance.
-function chunk(words: Scene["words"]): Chunk[] {
+const MAX_WORDS: Record<Style, number> = { bold: 3, box: 5, minimal: 6 };
+const MAX_CHARS: Record<Style, number> = { bold: 16, box: 26, minimal: 32 };
+
+// Breaks after punctuation or when the bite is full.
+function chunk(words: Scene["words"], style: Style): Chunk[] {
   const out: Chunk[] = [];
   let cur: Scene["words"] = [];
   const flush = () => {
@@ -16,9 +24,9 @@ function chunk(words: Scene["words"]): Chunk[] {
     cur = [];
   };
   for (const w of words) {
+    if (cur.length && cur.reduce((a, x) => a + x.text.length + 1, 0) + w.text.length > MAX_CHARS[style]) flush();
     cur.push(w);
-    const chars = cur.reduce((a, x) => a + x.text.length, 0);
-    if (/[.,!?:;…]$/.test(w.text) || cur.length >= 4 || chars >= 16) flush();
+    if (/[.,!?:;…]$/.test(w.text) || cur.length >= MAX_WORDS[style]) flush();
   }
   flush();
   return out;
@@ -26,67 +34,82 @@ function chunk(words: Scene["words"]): Chunk[] {
 
 const clean = (s: string) => s.replace(/[.,!?:;…"״׳']/g, "");
 
-// Captions sit on whatever the scene shows (a face, an apron, a light or a dark palette), so they
-// are always white with a dark outline. Key words take the accent; a dark accent would vanish in the
-// outline, so it becomes a highlight behind the word instead.
-export const Captions: React.FC<{ scene: Scene; font: string; accent: string }> = ({ scene, font, accent }) => {
+export const Captions: React.FC<{ scene: Scene; style: Style; font: string; accent: string }> = ({ scene, style, font, accent }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps, width: W, height: H } = useVideoConfig();
   const t = frame / fps;
-  const chunks = chunk(scene.words);
-  const i = chunks.findIndex((c, k) => t >= c.start - 0.05 && t < (chunks[k + 1]?.start ?? c.end + 0.6));
+  const chunks = chunk(scene.words, style);
+  const i = chunks.findIndex((c, k) => t >= c.start - 0.05 && t < (chunks[k + 1]?.start ?? c.end + 0.5) - 0.02);
   if (i < 0) return null;
   const c = chunks[i];
   const local = frame - Math.round((c.start - 0.05) * fps);
-  const pop = spring({ frame: local, fps, config: { damping: 14, stiffness: 220, mass: 0.6 } });
+  const pop = spring({ frame: local, fps, config: { damping: 14, stiffness: 240, mass: 0.55 } });
   const emphasis = new Set(scene.emphasis.map(clean));
-  const size = Math.round(width * 0.085);
+  const text = c.words.map((w) => w.text).join(" ");
+  const maxW = W * 0.86;
+  const base = { bold: W * 0.082, box: W * 0.06, minimal: W * 0.05 }[style];
+  // Never wider than the frame: a long bite gets a smaller size, not a cut.
+  const size = Math.min(base, fitLines([text], maxW * (style === "box" ? 0.86 : 1), font) * (style === "bold" ? 1.02 : 1));
   const brightAccent = luminance(accent) > 0.22;
+
+  const words = c.words.map((w, k) => {
+    const spoken = t >= w.start - 0.03;
+    const hot = emphasis.has(clean(w.text));
+    let st: React.CSSProperties = {};
+    if (hot && style === "bold")
+      st = brightAccent
+        ? { color: accent }
+        : { color: inkOn(accent), background: accent, WebkitTextStroke: 0, textShadow: "none", borderRadius: size * 0.18, padding: `0 ${size * 0.16}px` };
+    if (hot && style === "box") st = { color: brightAccent ? accent : "#ffffff", textDecoration: brightAccent ? undefined : `underline ${accent}` };
+    if (hot && style === "minimal") st = { fontWeight: 800 };
+    const dim = style === "bold" && !spoken ? 0.5 : 1;
+    return (
+      <span key={k} style={{ ...st, opacity: dim }}>
+        {w.text}
+        {k < c.words.length - 1 ? " " : ""}
+      </span>
+    );
+  });
+
+  const look: Record<Style, React.CSSProperties> = {
+    bold: {
+      fontWeight: 900,
+      color: "#ffffff",
+      WebkitTextStroke: `${Math.max(2, size * 0.07)}px #000000${alpha(0.85)}`,
+      paintOrder: "stroke fill",
+      textShadow: `0 ${size * 0.06}px ${size * 0.3}px #000000${alpha(0.85)}`,
+    },
+    box: {
+      fontWeight: 800,
+      color: "#ffffff",
+      background: `#0b0b12${alpha(0.78)}`,
+      padding: `${size * 0.22}px ${size * 0.5}px`,
+      borderRadius: size * 0.4,
+      boxDecorationBreak: "clone",
+    },
+    minimal: {
+      fontWeight: 600,
+      color: "#ffffff",
+      textShadow: `0 1px ${size * 0.25}px #000000${alpha(0.9)}, 0 0 ${size * 0.6}px #000000${alpha(0.5)}`,
+      letterSpacing: "0.01em",
+    },
+  };
 
   return (
     <div
       style={{
         position: "absolute",
-        left: width * 0.06,
-        right: width * 0.06,
-        top: height * 0.6,
+        left: (W - maxW) / 2,
+        width: maxW,
+        top: ZONES.captions * H - size * 0.7,
         display: "flex",
         justifyContent: "center",
         direction: "rtl",
-        transform: `scale(${interpolate(pop, [0, 1], [0.82, 1])})`,
+        transform: style === "minimal" ? undefined : `scale(${interpolate(pop, [0, 1], [0.85, 1])})`,
         opacity: interpolate(pop, [0, 0.4], [0, 1], { extrapolateRight: "clamp" }),
       }}
     >
-      <div
-        style={{
-          fontFamily: font,
-          fontWeight: 900,
-          fontSize: size,
-          lineHeight: 1.12,
-          textAlign: "center",
-          color: "#ffffff",
-          WebkitTextStroke: `${Math.max(2, size * 0.07)}px #000000${alpha(0.85)}`,
-          paintOrder: "stroke fill",
-          textShadow: `0 ${size * 0.06}px ${size * 0.3}px #000000${alpha(0.85)}, 0 0 ${size * 0.08}px #000000${alpha(0.9)}`,
-          textWrap: "balance",
-        }}
-      >
-        {c.words.map((w, k) => {
-          const spoken = t >= w.start - 0.03;
-          const hot = emphasis.has(clean(w.text));
-          const style: React.CSSProperties = !hot
-            ? {}
-            : brightAccent
-              ? { color: accent }
-              : { color: inkOn(accent), background: accent, WebkitTextStroke: 0, textShadow: "none", borderRadius: size * 0.18, padding: `0 ${size * 0.16}px`, boxDecorationBreak: "clone" };
-          return (
-            <span key={k} style={{ ...style, opacity: spoken ? 1 : 0.55 }}>
-              {w.text}
-              {k < c.words.length - 1 ? " " : ""}
-            </span>
-          );
-        })}
-      </div>
+      <div style={{ fontFamily: font, fontSize: size, lineHeight: 1.15, textAlign: "center", whiteSpace: "nowrap", ...look[style] }}>{words}</div>
     </div>
   );
 };

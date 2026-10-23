@@ -21,9 +21,9 @@ const KINDS = {
 } as const;
 
 const STEPS: Record<string, string> = {
-  writing: "כותב תסריט…",
-  voicing: "מקליט קריינות ומלחין מוזיקה…",
-  rendering: "מרנדר את הסרטון בענן…",
+  writing: "מתחיל הפקה…",
+  voicing: "מקליט קריינות, יוצר תמונות לסצנות ומלחין מוזיקה…",
+  rendering: "עורך ומרנדר את הסרטון בענן…",
 };
 
 export function Videos({

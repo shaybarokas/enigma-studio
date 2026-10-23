@@ -1,197 +1,86 @@
-// The video: scenes built from the kit's own templates (so the video and the graphics are one
-// campaign), joined by transitions, narrated, captioned and scored.
+// The video: the approved beats as shots, joined by hard cuts and moving transitions, narrated,
+// captioned, scored (the music ducks under the voice and rises between lines) and sweetened with
+// sound effects on the cuts, the reveal and the list.
 import { linearTiming, TransitionSeries } from "@remotion/transitions";
-import { fade } from "@remotion/transitions/fade";
-import { slide } from "@remotion/transitions/slide";
-import { AbsoluteFill, Audio, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, interpolate, Sequence, useVideoConfig } from "remotion";
 import type { CalculateMetadataFunction } from "remotion";
 import type { TemplateId } from "../catalog";
-import type { DesignProps } from "../design";
 import { fontFamily, useFontsReady, type FontName } from "../fonts";
-import { alpha, Glow, Grain, Vignette } from "../fx";
-import { CtaButton, Hero, inkOn, isLightBg, Logo, MetalText, useEnter } from "../parts";
-import { TEMPLATES } from "../templates";
-import { Captions } from "./captions";
 import { Watermark } from "../watermark";
-import { TRANSITION_FRAMES, videoDuration, type Scene, type VideoProps } from "./schema";
+import { Captions } from "./captions";
+import { sceneStarts, TRANSITION_FRAMES, videoDuration, type VideoProps } from "./schema";
+import { captioned, listTimes, Shot } from "./shots";
+import { PRESENTATIONS } from "./transitions";
 
-// The narration already says what's on screen in these scenes, so the template's own line steps
-// aside for the captions.
-const HIDE_FOR_CAPTIONS: Record<string, string[]> = { cover: ["subtitle"], props: ["subtitle"], hero: [] };
+const MUSIC_UNDER_VOICE = 0.11;
+const MUSIC_OPEN = 0.3;
 
-function withHidden(design: DesignProps, els: string[]): DesignProps {
-  const overrides = { ...design.overrides };
-  for (const el of els) overrides[el] = { ...overrides[el], hidden: true };
-  return { ...design, overrides, watermark: false }; // the video draws its own, once
-}
-
-/** The lecturer up close in their world: a slow push, rim light, the brand name on top. */
-const HeroScene: React.FC<{ design: DesignProps }> = ({ design }) => {
-  const frame = useCurrentFrame();
-  const { width: W, height: H, durationInFrames } = useVideoConfig();
-  const enter = useEnter();
-  const { bg, ink, muted, accent } = design.brand.palette;
-  const s = design.assets.subject;
-  const push = interpolate(frame, [0, Math.min(durationInFrames, 240)], [1.2, 1.05], { extrapolateRight: "clamp" });
-  const w = W * 0.98;
-  const h = s ? w / s.aspect : 0;
-  const lightFrom = design.subjectSide === "left" ? "right" : "left";
-  const light = isLightBg(bg);
-  // The brand name sits in the story's safe top; the head starts below it, never over it.
-  const markTop = H * 0.13;
-  const markSize = W * 0.1;
-  const heroTop = Math.max(H - h * 0.92, markTop + markSize * 1.25);
-  return (
-    <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
-      <AbsoluteFill style={{ transform: `scale(${push})` }}>
-        <Img src={design.assets.backgroundTall ?? design.assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: light ? "saturate(0.9)" : "brightness(0.6) saturate(0.85)" }} />
-      </AbsoluteFill>
-      <AbsoluteFill
-        style={{
-          background: light
-            ? `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.6)} 40%, ${bg}${alpha(0.85)} 100%)`
-            : `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.4)} 40%, ${bg}${alpha(0.75)} 100%)`,
-        }}
-      />
-      <div style={{ position: "absolute", top: markTop, width: "100%", display: "flex", justifyContent: "center", direction: "ltr" }}>
-        <MetalText text={design.copy.wordmark.join(" ")} font={fontFamily(design.brand.displayFont as FontName)} size={markSize} ink={ink} muted={muted} tint={light ? ink : undefined} progress={enter(4)} />
-      </div>
-      {s && (
-        <>
-          <Glow x={W / 2} y={heroTop + h * 0.22} size={W * 1.2} color={accent} opacity={0.25} />
-          <Hero src={s.src} box={{ left: (W - w) / 2, top: heroTop, width: w, height: h }} bg={bg} accent={accent} lightFrom={lightFrom} progress={enter(0, 20)} />
-        </>
-      )}
-      <AbsoluteFill style={{ background: `linear-gradient(to top, ${bg} 0%, transparent 30%)` }} />
-      <Vignette strength={0.5} />
-      <Grain opacity={0.12} />
-    </AbsoluteFill>
-  );
-};
-
-/** The last word: brand, promise, price and the button. */
-const EndCard: React.FC<{ design: DesignProps }> = ({ design }) => {
-  const { width: W, height: H } = useVideoConfig();
-  const enter = useEnter();
-  const { bg, ink, muted, accent } = design.brand.palette;
-  const body = fontFamily(design.brand.bodyFont as FontName);
-  // A light palette's ink is dark: the scene is washed toward the background instead of darkened.
-  const light = isLightBg(bg);
-  return (
-    <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
-      <AbsoluteFill>
-        <Img src={design.assets.backgroundTall ?? design.assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: light ? "blur(18px)" : "blur(18px) brightness(0.45)" }} />
-      </AbsoluteFill>
-      {light && <AbsoluteFill style={{ background: `${bg}${alpha(0.8)}` }} />}
-      <Glow x={W / 2} y={H * 0.42} size={W * 1.3} color={accent} opacity={0.3} />
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: H * 0.03, padding: W * 0.08, textAlign: "center" }}>
-        <Logo logo={design.assets.logo} height={W * 0.14} maxWidth={W * 0.5} bg={bg} progress={enter(2)} />
-        <div style={{ direction: "ltr" }}>
-          {design.copy.wordmark.map((l, i) => (
-            <MetalText key={i} text={l} font={fontFamily(design.brand.displayFont as FontName)} size={W * 0.16} ink={ink} muted={muted} tint={light ? ink : undefined} progress={enter(2 + i * 4)} />
-          ))}
-        </div>
-        <div style={{ fontFamily: body, fontWeight: 700, fontSize: W * 0.055, color: ink, opacity: enter(14), lineHeight: 1.25, textWrap: "balance" }}>
-          {design.copy.subtitle}
-        </div>
-        {design.copy.price && (
-          <div style={{ fontFamily: fontFamily(design.brand.headlineFont as FontName), fontWeight: 900, fontSize: W * 0.11, color: accent, opacity: enter(20) }}>
-            {design.copy.price}
-          </div>
-        )}
-        <CtaButton text={design.copy.cta} font={body} size={W * 0.055} color={accent} ink={inkOn(accent)} progress={enter(26)} />
-      </AbsoluteFill>
-      <Grain opacity={0.1} />
-    </AbsoluteFill>
-  );
-};
-
-// Covers whose main text sits where the captions run lose it in the opening scene.
-const COVER_HIDE: Partial<Record<TemplateId, string[]>> = { "split-editorial": ["headline"], "arch-luxe": ["wordmark"] };
-
-function SceneVisual({ scene, design: base, cover }: { scene: Scene; design: DesignProps; cover: TemplateId }) {
-  // The storyboard's words for this scene replace the design's (the user approved them).
-  const design: DesignProps = {
-    ...base,
-    copy: {
-      ...base.copy,
-      ...(scene.title ? { headline: scene.title } : {}),
-      ...(scene.sub ? { subtitle: scene.sub } : {}),
-      ...(scene.items?.length ? { bullets: scene.items } : {}),
-    },
-  };
-  const d = withHidden(design, [...(HIDE_FOR_CAPTIONS[scene.type] ?? []), ...(scene.type === "cover" ? (COVER_HIDE[cover] ?? []) : [])]);
-  switch (scene.type) {
-    case "cover": {
-      const C = TEMPLATES[cover].component;
-      return <C {...d} />;
-    }
-    case "hook": {
-      const C = TEMPLATES["headline-impact"].component;
-      return <C {...d} />;
-    }
-    case "bullets": {
-      const C = TEMPLATES["ad-list"].component;
-      return <C {...d} />;
-    }
-    case "props": {
-      if (!design.assets.props.length) return <HeroScene design={d} />;
-      const C = TEMPLATES["studio-props"].component;
-      return <C {...d} />;
-    }
-    case "cta":
-      return <EndCard design={d} />;
-    default:
-      return <HeroScene design={d} />;
-  }
-}
-
-const CAPTIONED = new Set(["cover", "hero", "hook", "props"]);
-const PRESENTATIONS = [fade(), slide({ direction: "from-bottom" }), fade(), slide({ direction: "from-right" })];
-
-const Video: React.FC<VideoProps> = ({ design, cover, scenes, music, captions }) => {
+const Video: React.FC<VideoProps> = ({ kind, design, cover, scenes, music, captions, sfx, backdrops }) => {
   const { durationInFrames, fps } = useVideoConfig();
-  const accent = design.brand.palette.accent;
   const capFont = fontFamily(design.brand.headlineFont as FontName);
+  const starts = sceneStarts(scenes);
+
+  // Spoken spans in video frames: the music steps back under them.
+  const speech = scenes.flatMap((s, i) => (s.words.length ? [[starts[i] + s.words[0].start * fps, starts[i] + s.words.at(-1)!.end * fps] as const] : []));
+  const musicVolume = (f: number) => {
+    const gap = speech.reduce((d, [a, b]) => Math.min(d, f < a ? a - f : f > b ? f - b : 0), Infinity);
+    const bed = interpolate(gap, [0, 10], [MUSIC_UNDER_VOICE, MUSIC_OPEN], { extrapolateRight: "clamp" });
+    const fadeIn = interpolate(f, [0, fps * 0.4], [0.4, 1], { extrapolateRight: "clamp" });
+    const fadeOut = interpolate(f, [durationInFrames - fps * 1.5, durationInFrames - 1], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    return bed * fadeIn * fadeOut;
+  };
+
+  // Sound effects at their moments.
+  const hits: { at: number; src: string; volume: number }[] = [];
+  if (sfx) {
+    scenes.forEach((s, i) => {
+      const t = s.transition;
+      if (i < scenes.length - 1 && (t === "whip" || t === "zoom")) hits.push({ at: starts[i + 1] - 4, src: sfx.whoosh, volume: 0.5 });
+      if (s.role === "intro" || s.role === "cta") hits.push({ at: starts[i], src: sfx.impact, volume: 0.55 });
+      if (s.role === "intro" && kind === "promo" && starts[i] > fps * 2) hits.push({ at: starts[i] - fps * 2, src: sfx.riser, volume: 0.4 });
+      if (s.visual === "logo") hits.push({ at: starts[i] + 8, src: sfx.shimmer, volume: 0.4 });
+      if (s.visual === "list" && s.role !== "cta") for (const f of listTimes(s, s.items.length || 3)) hits.push({ at: starts[i] + f, src: sfx.pop, volume: 0.35 });
+    });
+  }
+
   return (
     <AbsoluteFill style={{ background: design.brand.palette.bg }}>
       <TransitionSeries>
         {scenes.flatMap((scene, i) => {
           const seq = (
             <TransitionSeries.Sequence key={`s${i}`} durationInFrames={scene.durationInFrames}>
-              <SceneVisual scene={scene} design={design} cover={cover as TemplateId} />
-              {captions && CAPTIONED.has(scene.type) && <Captions scene={scene} font={capFont} accent={accent} />}
-              {scene.audio && <Audio src={scene.audio} />}
+              <Shot scene={scene} design={design} kind={kind} cover={cover as TemplateId} backdrops={backdrops} />
+              {captions !== "off" && captioned(scene) && <Captions scene={scene} style={captions} font={capFont} accent={design.brand.palette.accent} />}
+              {scene.audio && (
+                <Sequence from={scene.lead} layout="none">
+                  <Audio src={scene.audio} />
+                </Sequence>
+              )}
             </TransitionSeries.Sequence>
           );
-          if (i === scenes.length - 1) return [seq];
+          if (i === scenes.length - 1 || scene.transition === "cut") return [seq];
           return [
             seq,
             <TransitionSeries.Transition
               key={`t${i}`}
-              presentation={PRESENTATIONS[i % PRESENTATIONS.length]}
-              timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
+              presentation={PRESENTATIONS[scene.transition]}
+              timing={linearTiming({ durationInFrames: TRANSITION_FRAMES[scene.transition] })}
             />,
           ];
         })}
       </TransitionSeries>
+      {hits.map((h, i) => (
+        <Sequence key={i} from={Math.max(0, Math.round(h.at))} durationInFrames={fps * 3} layout="none">
+          <Audio src={h.src} volume={h.volume} />
+        </Sequence>
+      ))}
       {design.watermark && <Watermark />}
-      {music && (
-        <Audio
-          src={music}
-          volume={(f) =>
-            interpolate(f, [0, fps * 0.6, durationInFrames - fps * 1.2, durationInFrames - 1], [0, 0.16, 0.16, 0], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            })
-          }
-        />
-      )}
+      {music && <Audio src={music} volume={musicVolume} />}
     </AbsoluteFill>
   );
 };
 
-/** The video, drawn once the brand's fonts are loaded (captions are measured and styled with them). */
+/** The video, drawn once the brand's fonts are loaded (titles and captions are measured with them). */
 export const VideoComposition: React.FC<VideoProps> = (p) => {
   const b = p.design.brand;
   const ready = useFontsReady([b.displayFont, b.headlineFont, b.bodyFont] as FontName[]);

@@ -92,6 +92,7 @@ export async function POST(
       design: { ...(kit.design as DesignProps), watermark: plan.watermark },
       cost,
       cover: (kit.concepts as KitConcept[])[kit.chosen].concept.templateId,
+      style: (kit.concepts as KitConcept[])[kit.chosen].concept.backgroundPrompt,
     }),
   );
   return NextResponse.json({ video: row });

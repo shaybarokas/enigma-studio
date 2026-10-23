@@ -44,7 +44,10 @@ export const MUSIC_PRESETS: { label: string; prompt: string }[] = [
 /** How long each kind should run, in seconds. */
 export const LENGTH: Record<"promo" | "marketing", [number, number]> = { promo: [35, 45], marketing: [40, 60] };
 
-// Hebrew narration runs about 2.3 words a second; each beat also breathes a little.
-export const WORDS_PER_SECOND = 2.3;
-export const beatSeconds = (b: { voice: string }) => b.voice.trim().split(/\s+/).filter(Boolean).length / WORDS_PER_SECOND + 0.5;
+// Measured on the produced videos (2026-10-23): the Hebrew voices speak about 1.8 words a second,
+// and the edit gives each beat about 0.7s more (the picture leads the voice, a breath after it,
+// cuts on the music's grid).
+export const WORDS_PER_SECOND = 1.8;
+export const BEAT_PADDING = 0.7;
+export const beatSeconds = (b: { voice: string }) => b.voice.trim().split(/\s+/).filter(Boolean).length / WORDS_PER_SECOND + BEAT_PADDING;
 export const estimateSeconds = (sb: { beats: { voice: string }[] }) => Math.round(sb.beats.reduce((a, b) => a + beatSeconds(b), 0));
