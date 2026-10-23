@@ -5,7 +5,7 @@ import type { DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain } from "../fx";
-import { fitLines } from "../fit";
+import { balancedLines, fitLines } from "../fit";
 import { Hero, inkOn, Logo, logoSpace, Pill, Placed, useEnter, type Box } from "../parts";
 
 // Where props float, as fractions of the frame: x, y, size (of the shorter side), blur, depth.
@@ -49,7 +49,8 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
         height: H * 0.5,
       }
     : { left: W * 0.06, top: story ? H * (STORY_SAFE.top + 0.01) : H * 0.05, width: W * 0.88, height: H * 0.26 };
-  const markSize = Math.min(fitLines(copy.wordmark, markBox.width, display, { uppercase: true }), wide ? H * 0.22 : W * 0.26);
+  // A wide (head-and-shoulders) photo stands short in tall formats: the wordmark gives it more room.
+  const markSize = Math.min(fitLines(copy.wordmark, markBox.width, display, { uppercase: true }), wide ? H * 0.22 : W * (ar > 0.8 ? 0.17 : 0.26));
 
   // Height from the format, capped by width so a wide photo never swallows the wordmark.
   let heroH = Math.min(wide ? H * 0.95 : H * (story ? 0.58 : 0.62), (W * (format === "landscape" ? 0.42 : wide ? 0.46 : 0.8)) / ar);
@@ -61,6 +62,21 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
   // Tall formats stack the wordmark above the hero: the head starts below its real height, so a long
   // name or a row of tags never ends up behind the face.
   if (!wide) heroH = Math.min(heroH, H - (markText.top + markText.height + short * 0.015));
+
+  // The promise as a chip of two balanced lines, sized to its column, with its real height: wide
+  // formats set it right under the wordmark and tags, tall ones at the bottom of the safe area.
+  const subW = wide ? markBox.width : W * 0.88;
+  const subLines = balancedLines(copy.subtitle);
+  const subSize = Math.min(Math.round((wide ? H : W) * (format === "landscape" ? 0.048 : 0.058)), fitLines(subLines, subW * 0.86, body) * 0.95);
+  const subH = subSize * 1.2 * subLines.length + subSize * 0.6;
+  const subBottom = wide ? Math.min(H * 0.94, markText.top + markText.height + markSize * 0.3 + subH) : H * (story ? 1 - STORY_SAFE.bottom - 0.01 : 0.95);
+  let subBox: Box = { left: wide ? markBox.left : W * 0.06, top: subBottom - subH, width: subW, height: subH };
+  // Tall: a short (wide-cropped) hero stands low, and the face would meet the chip at the bottom. Then
+  // the chip joins the wordmark at the top and the hero stands below them both.
+  if (!wide && H - heroH + heroH * 0.45 > subBox.top - short * 0.02) {
+    subBox = { ...subBox, top: markText.top + markText.height + markSize * 0.25 };
+    heroH = Math.min(heroH, H - (subBox.top + subH + short * 0.02));
+  }
   const heroBox: Box = wide
     ? {
         left: subjectSide === "left" ? W * (format === "landscape" ? 0.12 : 0.02) : W - W * (format === "landscape" ? 0.1 : 0.02) - heroH * ar,
@@ -70,15 +86,10 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
       }
     : { left: (W - heroH * ar) / 2, top: H - heroH, width: heroH * ar, height: heroH };
 
-  const subBox: Box = wide
-    ? { left: subjectSide === "left" ? W - W * 0.05 - W * 0.5 : W * 0.05, top: H * 0.66, width: format === "square" ? W * 0.5 : markBox.width, height: H * 0.26 }
-    : { left: W * 0.06, top: H * (story ? 1 - STORY_SAFE.bottom - 0.12 : 0.84), width: W * 0.88, height: H * 0.12 };
-
   const heroIn = enter(8);
   const markIn = enter(2);
   const subIn = enter(20);
   const spots = SPOTS[wide ? "wide" : "tall"];
-  const subSize = Math.round((wide ? H : W) * (format === "landscape" ? 0.048 : 0.058));
 
   const prop = (i: number, front: boolean) => {
     const img = assets.props[i % Math.max(assets.props.length, 1)];
@@ -177,7 +188,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
       <Placed
         box={subBox}
         el="subtitle" t={o.subtitle}
-        style={{ display: "flex", alignItems: "flex-end", justifyContent: wide ? "flex-start" : "center", opacity: subIn }}
+        style={{ display: "flex", alignItems: "flex-start", justifyContent: wide ? "flex-start" : "center", opacity: subIn }}
       >
         <div
           style={{
@@ -191,10 +202,13 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
             borderRadius: subSize * 0.5,
             boxShadow: `0 ${subSize * 0.3}px ${subSize}px #000000${alpha(0.3)}`,
             textAlign: wide ? "right" : "center",
-            textWrap: "balance",
           }}
         >
-          {copy.subtitle}
+          {subLines.map((l, i) => (
+            <div key={i} style={{ whiteSpace: "nowrap" }}>
+              {l}
+            </div>
+          ))}
         </div>
       </Placed>
 

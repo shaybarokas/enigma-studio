@@ -5,8 +5,18 @@ import type { DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE, type FormatId } from "../formats";
 import { alpha, Glow, Grain, Vignette } from "../fx";
-import { fitLines } from "../fit";
-import { Hero, Logo, logoSpace, MetalText, Placed, Scene, useEnter, type Box } from "../parts";
+import { balancedLines, fitLines } from "../fit";
+import {
+  Hero,
+  isLightBg,
+  Logo,
+  logoSpace,
+  MetalText,
+  Placed,
+  Scene,
+  useEnter,
+  type Box,
+} from "../parts";
 
 type Layout = {
   subject: Box;
@@ -18,16 +28,35 @@ type Layout = {
 };
 
 // Every format gets its own composition, not a crop of the landscape one.
-function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "left" | "right"): Layout {
-  const mirror = (b: Box): Box => (side === "left" ? b : { ...b, left: W - b.left - b.width });
+function layoutFor(
+  format: FormatId,
+  W: number,
+  H: number,
+  ar: number,
+  side: "left" | "right",
+): Layout {
+  const mirror = (b: Box): Box =>
+    side === "left" ? b : { ...b, left: W - b.left - b.width };
   if (format === "landscape") {
     const h = Math.min(H * 0.97, (W * 0.42) / ar);
     const textW = W * 0.46;
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {
       subject: mirror({ left: W * 0.07, top: H - h, width: h * ar, height: h }),
-      wordmark: { left: textLeft, top: H * 0.13, width: textW, height: H * 0.42, align: "end" },
-      subtitle: { left: textLeft, top: H * 0.62, width: textW, height: H * 0.28, align: "end" },
+      wordmark: {
+        left: textLeft,
+        top: H * 0.13,
+        width: textW,
+        height: H * 0.42,
+        align: "end",
+      },
+      subtitle: {
+        left: textLeft,
+        top: H * 0.62,
+        width: textW,
+        height: H * 0.28,
+        align: "end",
+      },
       sideFade: 0.62,
       bottomFade: 0.35,
       maxWordmark: H * 0.2,
@@ -42,8 +71,20 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
     const textLeft = side === "left" ? W - W * 0.06 - textW : W * 0.06;
     return {
       subject: mirror({ left: W * 0.02, top: H - h, width: sw, height: h }),
-      wordmark: { left: textLeft, top: H * 0.07, width: textW, height: H * 0.4, align: "end" },
-      subtitle: { left: textLeft, top: H * 0.6, width: textW, height: H * 0.32, align: "end" },
+      wordmark: {
+        left: textLeft,
+        top: H * 0.07,
+        width: textW,
+        height: H * 0.4,
+        align: "end",
+      },
+      subtitle: {
+        left: textLeft,
+        top: H * 0.6,
+        width: textW,
+        height: H * 0.32,
+        align: "end",
+      },
       sideFade: 0.7,
       bottomFade: 0.45,
       maxWordmark: H * 0.16,
@@ -57,24 +98,54 @@ function layoutFor(format: FormatId, W: number, H: number, ar: number, side: "le
   const subtitleH = H * (story ? 0.2 : 0.22);
   return {
     subject: { left: 0, top: 0, width: 0, height: 0 },
-    wordmark: { left: W * 0.07, top, width: W * 0.86, height: H * 0.24, align: "center" },
-    subtitle: { left: W * 0.07, top: subtitleBottom - subtitleH, width: W * 0.86, height: subtitleH, align: "center" },
+    wordmark: {
+      left: W * 0.07,
+      top,
+      width: W * 0.86,
+      height: H * 0.24,
+      align: "center",
+    },
+    subtitle: {
+      left: W * 0.07,
+      top: subtitleBottom - subtitleH,
+      width: W * 0.86,
+      height: subtitleH,
+      align: "center",
+    },
     sideFade: 0,
     bottomFade: story ? 0.55 : 0.5,
     maxWordmark: W * 0.24,
   };
 }
 
-// Tall formats: the head tucks just under the wordmark (magazine-cover depth), never over its middle.
-function fitTall(L: Layout, W: number, H: number, ar: number, lines: number, markSize: number, logoH = 0): Box {
+// Tall formats: the head tucks just under the wordmark (magazine-cover depth), never over its middle,
+// and the face ends above the promise: a bust's head and neck fill about its top 40%.
+function fitTall(
+  L: Layout,
+  W: number,
+  H: number,
+  ar: number,
+  lines: number,
+  markSize: number,
+  logoH: number,
+  textTop: number,
+): Box {
   const markBottom = L.wordmark.top + logoH + lines * markSize * 0.95;
-  const top = Math.max(markBottom - markSize * 0.3, H * 0.24);
-  // Big and close: the hero runs off the bottom edge (chest crop) instead of shrinking to fit.
-  const w = Math.max(W * 0.86, (H - top) * ar);
+  const top = Math.max(markBottom - markSize * 0.22, H * 0.22);
+  // Big and close: the hero runs off the bottom edge (chest crop) instead of shrinking to fit…
+  const big = Math.max(W * 0.86, (H - top) * ar);
+  // …but not so big that the chin reaches the promise.
+  const w = Math.min(big, ((textTop - H * 0.02 - top) / 0.42) * ar);
   return { left: (W - w) / 2, top, width: w, height: w / ar };
 }
 
-export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
+export const CinematicPoster: React.FC<DesignProps> = ({
+  brand,
+  copy,
+  assets,
+  subjectSide,
+  overrides: o,
+}) => {
   const { width: W, height: H } = useVideoConfig();
   const enter = useEnter();
   const format = formatFromSize(W, H);
@@ -86,15 +157,51 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
   const body = fontFamily(brand.bodyFont as FontName);
 
   // Wordmark size: the largest that fits the widest line, capped so it never shouts over the face.
-  const markSize = Math.min(L.maxWordmark, fitLines(copy.wordmark, L.wordmark.width, display, { letterSpacing: "0.02em", uppercase: true }));
+  const markSize = Math.min(
+    L.maxWordmark,
+    fitLines(copy.wordmark, L.wordmark.width, display, {
+      letterSpacing: "0.02em",
+      uppercase: true,
+    }),
+  );
   // The brand's logo sits above the wordmark, a little over half its height.
-  const logoH = markSize * 0.55;
+  const logoH = markSize * (tall ? 0.42 : 0.55);
   const logoRoom = logoSpace(assets.logo, logoH, L.wordmark.width * 0.5);
-  if (tall) L.subject = fitTall(L, W, H, ar, copy.wordmark.length, markSize, logoRoom);
   const base = format === "landscape" ? H : W;
-  const subtitleSize = Math.round(base * (format === "landscape" ? 0.052 : format === "story" ? 0.074 : 0.064));
+  const subLines = balancedLines(copy.subtitle);
+  const subtitleSize = Math.min(
+    Math.round(
+      base *
+        (format === "landscape" ? 0.052 : format === "story" ? 0.07 : 0.062),
+    ),
+    fitLines(subLines, L.subtitle.width, body) * 0.95,
+  );
   const kickerSize = Math.round(subtitleSize * 0.6);
-  const justify = (a: "center" | "end") => (a === "center" ? "center" : "flex-start");
+  // The promise block's real height (kicker, rule, two lines), so the hero can end above it.
+  const textH =
+    kickerSize * 1.35 +
+    kickerSize * 0.7 +
+    subtitleSize * 1.15 * subLines.length;
+  if (tall) {
+    L.subtitle = {
+      ...L.subtitle,
+      top: L.subtitle.top + L.subtitle.height - textH,
+      height: textH,
+    };
+    L.subject = fitTall(
+      L,
+      W,
+      H,
+      ar,
+      copy.wordmark.length,
+      markSize,
+      logoRoom,
+      L.subtitle.top,
+    );
+  }
+  const light = isLightBg(bg);
+  const justify = (a: "center" | "end") =>
+    a === "center" ? "center" : "flex-start";
   // Scene light comes from the text side; the hero's far side falls into shadow.
   const lightFrom = subjectSide === "left" ? "right" : "left";
 
@@ -102,9 +209,56 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
   const markIn = enter(14);
   const subIn = enter(24);
 
+  // The brand wordmark: behind the hero in wide formats; in tall ones (where the head only touches its
+  // last line) in front, so a soft-edged cut-out never veils the name.
+  const wordmark = (
+    <Placed
+      box={L.wordmark}
+      el="wordmark"
+      t={o.wordmark}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: L.wordmark.align === "center" ? "center" : "flex-end",
+        direction: "ltr",
+      }}
+    >
+      <Logo
+        logo={assets.logo}
+        height={logoH}
+        maxWidth={L.wordmark.width * 0.5}
+        bg={bg}
+        t={o.logo}
+        progress={markIn}
+        style={{ marginBottom: logoH * 0.4 }}
+      />
+      {copy.wordmark.map((line, i) => (
+        <MetalText
+          key={i}
+          text={line}
+          font={display}
+          size={markSize}
+          ink={ink}
+          muted={muted}
+          tint={light ? ink : undefined}
+          progress={markIn}
+        />
+      ))}
+    </Placed>
+  );
+
   return (
-    <AbsoluteFill style={{ background: bg, overflow: "hidden", direction: "rtl" }}>
-      <Scene src={tall && assets.backgroundTall ? assets.backgroundTall : assets.background} bg={bg} />
+    <AbsoluteFill
+      style={{ background: bg, overflow: "hidden", direction: "rtl" }}
+    >
+      <Scene
+        src={
+          tall && assets.backgroundTall
+            ? assets.backgroundTall
+            : assets.background
+        }
+        bg={bg}
+      />
       {L.sideFade > 0 && (
         <AbsoluteFill
           style={{
@@ -113,30 +267,39 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
         />
       )}
 
-      {/* Brand wordmark sits behind the hero. */}
-      <Placed
-        box={L.wordmark}
-        el="wordmark" t={o.wordmark}
-        style={{ display: "flex", flexDirection: "column", alignItems: L.wordmark.align === "center" ? "center" : "flex-end", direction: "ltr" }}
-      >
-        <Logo logo={assets.logo} height={logoH} maxWidth={L.wordmark.width * 0.5} bg={bg} t={o.logo} progress={markIn} style={{ marginBottom: logoH * 0.4 }} />
-        {copy.wordmark.map((line, i) => (
-          <MetalText key={i} text={line} font={display} size={markSize} ink={ink} muted={muted} progress={markIn} />
-        ))}
-      </Placed>
-
-      {assets.subject && (
-        <>
-          <Glow
-            x={L.subject.left + L.subject.width / 2}
-            y={L.subject.top + L.subject.height * 0.3}
-            size={L.subject.width * 1.5}
-            color={accent}
-            opacity={0.2 * subjectIn}
-          />
-          <Hero src={assets.subject.src} box={L.subject} t={o.subject} bg={bg} accent={accent} lightFrom={lightFrom} progress={subjectIn} />
-        </>
+      {/* Tall: a veil of the ground behind the wordmark, so a busy photo never fights the name. */}
+      {tall && (
+        <AbsoluteFill
+          style={{
+            background: `linear-gradient(to bottom, ${bg}${alpha(0.88)} 0%, ${bg}${alpha(0.7)} ${((L.subject.top) / H) * 100}%, transparent ${((L.subject.top + H * 0.12) / H) * 100}%)`,
+          }}
+        />
       )}
+
+      {/* The light around the hero is background light: it never washes over the wordmark. */}
+      {assets.subject && (
+        <Glow
+          x={L.subject.left + L.subject.width / 2}
+          y={L.subject.top + L.subject.height * 0.3}
+          size={L.subject.width * 1.5}
+          color={accent}
+          opacity={0.2 * subjectIn}
+        />
+      )}
+
+      {!tall && wordmark}
+      {assets.subject && (
+        <Hero
+          src={assets.subject.src}
+          box={L.subject}
+          t={o.subject}
+          bg={bg}
+          accent={accent}
+          lightFrom={lightFrom}
+          progress={subjectIn}
+        />
+      )}
+      {tall && wordmark}
 
       <AbsoluteFill
         style={{
@@ -147,7 +310,8 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
       {/* The promise, in Hebrew. */}
       <Placed
         box={L.subtitle}
-        el="subtitle" t={o.subtitle}
+        el="subtitle"
+        t={o.subtitle}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -158,7 +322,16 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
           translate: `0 ${(1 - subIn) * 30}px`,
         }}
       >
-        <div style={{ fontFamily: body, fontWeight: 700, fontSize: kickerSize, color: accent, letterSpacing: "0.04em", marginBottom: kickerSize * 0.35 }}>
+        <div
+          style={{
+            fontFamily: body,
+            fontWeight: 700,
+            fontSize: kickerSize,
+            color: accent,
+            letterSpacing: "0.04em",
+            marginBottom: kickerSize * 0.35,
+          }}
+        >
           {copy.kicker}
         </div>
         <div
@@ -178,11 +351,16 @@ export const CinematicPoster: React.FC<DesignProps> = ({ brand, copy, assets, su
             fontSize: subtitleSize,
             lineHeight: 1.15,
             color: ink,
-            textShadow: `0 4px 24px #000000${alpha(0.75)}`,
-            textWrap: "balance",
+            textShadow: light
+              ? `0 0 ${subtitleSize * 0.5}px ${bg}`
+              : `0 4px 24px #000000${alpha(0.75)}`,
           }}
         >
-          {copy.subtitle}
+          {subLines.map((l, i) => (
+            <div key={i} style={{ whiteSpace: "nowrap" }}>
+              {l}
+            </div>
+          ))}
         </div>
       </Placed>
 

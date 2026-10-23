@@ -2,6 +2,7 @@
 // agent turns them into a precise change to the design (copy, colours, fonts, layout, new scene).
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { ICON_KEYS } from "@/engine/icon-keys";
 import { ELEMENT_NAMES, type DesignProps } from "@/engine/design";
 import { FONT_NAMES } from "@/engine/fonts-list";
 import { structured } from "../ai/claude";
@@ -16,6 +17,10 @@ const editSchema = z.object({
       headline: z.string().nullable().describe("'|' splits ink from accent"),
       subtitle: z.string().nullable(),
       bullets: z.array(z.string()).nullable(),
+      icons: z
+        .array(z.enum(ICON_KEYS))
+        .nullable()
+        .describe("one icon per bullet, in order: set whenever bullets change or the user asks about icons; null = keep"),
       tags: z.array(z.string()).nullable(),
       cta: z.string().nullable(),
       price: z.string().nullable(),

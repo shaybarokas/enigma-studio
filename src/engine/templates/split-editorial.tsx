@@ -109,11 +109,11 @@ export const SplitEditorial: React.FC<DesignProps> = ({
         letterSpacing: "0.08em",
         uppercase: true,
       }),
-      base * 0.05,
+      base * 0.056,
     );
-    const sub = Math.round(base * 0.042);
+    const sub = Math.round(base * (format === "story" ? 0.05 : 0.046));
     const f = fitLines([h1, h2].filter(Boolean), w, head);
-    const hs = Math.max(base * 0.085, Math.min(f, base * 0.12));
+    const hs = Math.max(base * 0.085, Math.min(f, base * 0.14));
     const ln = (h2 ? 2 : 1) * (f < base * 0.085 ? 2 : 1);
     L = layoutFor(
       format,
@@ -132,9 +132,9 @@ export const SplitEditorial: React.FC<DesignProps> = ({
       letterSpacing: "0.08em",
       uppercase: true,
     }),
-    base * 0.05,
+    base * (tall ? 0.056 : 0.05),
   );
-  const subSize = Math.round(base * (tall ? 0.042 : 0.04));
+  const subSize = Math.round(base * (format === "story" ? 0.05 : tall ? 0.046 : 0.04));
   const tagSize = Math.round(subSize * 0.7);
   // The headline is as big as its longest part allows on one line; a long hook wraps instead of
   // shrinking below a readable size.
@@ -148,7 +148,7 @@ export const SplitEditorial: React.FC<DesignProps> = ({
   const rest =
     logoSpace(assets.logo, logoH, L.content.width * 0.45) + mastSize * 2.6 + subSize * 1.35 * 2 + (copy.tags.length ? tagSize * 3 : 0);
   const headSize = Math.min(
-    Math.max(minHead, Math.min(fitted, base * (tall ? 0.13 : 0.12))),
+    Math.max(minHead, Math.min(fitted, base * (tall ? 0.14 : 0.12))),
     (L.content.height - rest) / (lines * 1.04 + 0.7),
   );
 
@@ -262,7 +262,7 @@ export const SplitEditorial: React.FC<DesignProps> = ({
         style={{
           display: "flex",
           flexDirection: "column",
-          justifyContent: L.vertical ? "flex-start" : "center",
+          justifyContent: "center",
           alignItems: align,
           textAlign: L.vertical ? "center" : "right",
         }}

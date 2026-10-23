@@ -6,7 +6,7 @@ import { splitHeadline, type DesignProps } from "../design";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain, Vignette } from "../fx";
-import { Hero, inkOn, Logo, logoSpace, Pill, Placed, useEnter, type Box } from "../parts";
+import { Hero, inkOn, isLightBg, Logo, logoSpace, Pill, Placed, useEnter, type Box } from "../parts";
 
 export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide, overrides: o }) => {
   const frame = useCurrentFrame();
@@ -23,6 +23,9 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
   const ar = assets.subject?.aspect ?? 0.62;
   const [line1, line2] = splitHeadline(copy.headline);
   const lightFrom = subjectSide === "left" ? "right" : "left";
+  // A light palette keeps its own airy ground (deepened by its ink, never by black) and lifts the
+  // words with a halo of the ground instead of a dark shadow.
+  const light = isLightBg(bg);
 
   // Text column: beside the hero when wide, above it when tall.
   // In the square the column ends where the hero's box begins (plus a little shoulder), so a wide
@@ -77,7 +80,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
       {/* Deep brand gradient with a soft beam of accent light. */}
       <AbsoluteFill
         style={{
-          background: `radial-gradient(ellipse at ${lightFrom === "right" ? "75%" : "25%"} 20%, ${accent}${alpha(0.28)} 0%, transparent 55%), linear-gradient(160deg, ${bg} 0%, #000000 100%)`,
+          background: `radial-gradient(ellipse at ${lightFrom === "right" ? "75%" : "25%"} 20%, ${accent}${alpha(0.28)} 0%, transparent 55%), linear-gradient(160deg, ${bg} 0%, ${light ? `${bg} 55%, ${ink}${alpha(0.14)}` : "#000000"} 100%)`,
         }}
       />
       {assets.background && (
@@ -119,7 +122,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
             color: ink,
             opacity: l1,
             translate: `0 ${(1 - l1) * 40}px`,
-            textShadow: `0 ${headSize * 0.05}px ${headSize * 0.2}px #000000${alpha(0.6)}`,
+            textShadow: light ? `0 0 ${headSize * 0.3}px ${bg}` : `0 ${headSize * 0.05}px ${headSize * 0.2}px #000000${alpha(0.6)}`,
             whiteSpace: "nowrap",
           }}
         >
@@ -135,7 +138,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
               color: accent,
               opacity: l2,
               translate: `0 ${(1 - l2) * 40}px`,
-              textShadow: `0 0 ${headSize * 0.35}px ${accent}${alpha(0.45)}, 0 ${headSize * 0.05}px ${headSize * 0.2}px #000000${alpha(0.6)}`,
+              textShadow: light ? `0 0 ${headSize * 0.3}px ${bg}` : `0 0 ${headSize * 0.35}px ${accent}${alpha(0.45)}, 0 ${headSize * 0.05}px ${headSize * 0.2}px #000000${alpha(0.6)}`,
               whiteSpace: "nowrap",
             }}
           >

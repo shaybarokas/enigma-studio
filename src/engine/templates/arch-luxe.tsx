@@ -22,11 +22,13 @@ function layoutFor(format: FormatId, W: number, H: number, side: "left" | "right
   if (format === "landscape") return onSide(H * 0.56, H * 0.84, H * 0.08, W * 0.08, W * 0.5);
   if (format === "square") return onSide(W * 0.4, H * 0.8, H * 0.1, W * 0.06, W * 0.46);
   const story = format === "story";
-  const top = story ? H * (STORY_SAFE.top + 0.02) : H * 0.06;
+  // The arch is a picture: in a story it may rise into the top strip (under the profile bar); the
+  // text stays inside the safe area.
+  const top = H * 0.06;
   const textBottom = story ? H * (1 - STORY_SAFE.bottom) : H * 0.95;
   const gap = H * 0.03;
-  const archH = Math.min(H * 0.48, Math.max(H * 0.28, textBottom - top - gap - textNeeded));
-  const archW = Math.min(W * 0.66, archH * 0.68);
+  const archH = Math.min(H * (story ? 0.56 : 0.5), Math.max(H * 0.3, textBottom - top - gap - textNeeded));
+  const archW = Math.min(W * 0.78, archH * 0.7);
   const textTop = top + archH + gap;
   return { arch: { left: (W - archW) / 2, top, width: archW, height: archH }, text: { left: W * 0.08, top: textTop, width: W * 0.84, height: textBottom - textTop }, align: "center" };
 }
@@ -45,12 +47,13 @@ export const ArchLuxe: React.FC<DesignProps> = ({ brand, copy, assets, subjectSi
   const ar = assets.subject?.aspect ?? 0.62;
   const base = tall ? W : H;
 
-  const kickerSize = Math.round(base * (tall ? 0.03 : 0.028));
-  const subSize = Math.round(base * (tall ? 0.05 : 0.044));
+  const story = format === "story";
+  const kickerSize = Math.round(base * (story ? 0.032 : tall ? 0.03 : 0.028));
+  const subSize = Math.round(base * (story ? 0.052 : tall ? 0.048 : 0.044));
   // Kicker, rule, promise (two lines) and tags: what the column holds besides the wordmark.
-  const logoH = kickerSize * 2.4;
+  const logoH = kickerSize * (story ? 2 : 2.4);
   const rest = logoSpace(assets.logo, logoH, W * 0.3) + kickerSize * 2 + kickerSize * 2.3 + subSize * 1.35 * 2 + (copy.tags.length ? kickerSize * 2 : 0);
-  const markFit = (width: number) => Math.min(fitLines(copy.wordmark, width, display, { letterSpacing: "0.04em", uppercase: true }), base * (tall ? 0.13 : 0.13));
+  const markFit = (width: number) => Math.min(fitLines(copy.wordmark, width, display, { letterSpacing: "0.04em", uppercase: true }), base * (story ? 0.15 : tall ? 0.14 : 0.13));
   const L = layoutFor(format, W, H, subjectSide, rest + copy.wordmark.length * markFit(W * 0.84));
   // In the side column the wordmark also gives way to the height the promise needs.
   const markSize = Math.min(markFit(L.text.width), (L.text.height - rest) / copy.wordmark.length);
@@ -114,7 +117,7 @@ export const ArchLuxe: React.FC<DesignProps> = ({ brand, copy, assets, subjectSi
         box={L.text}
         el="wordmark"
         t={o.wordmark}
-        style={{ display: "flex", flexDirection: "column", justifyContent: center ? "flex-start" : "center", alignItems: center ? "center" : "flex-start", textAlign: center ? "center" : "right" }}
+        style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: center ? "center" : "flex-start", textAlign: center ? "center" : "right" }}
       >
         <Logo logo={assets.logo} height={logoH} maxWidth={Math.min(L.text.width * 0.5, W * 0.3)} bg={bg} t={o.logo} progress={markIn} style={{ marginBottom: logoH * 0.45 }} />
         <div style={{ fontFamily: body, fontWeight: 700, fontSize: kickerSize, letterSpacing: "0.06em", color: accent, opacity: markIn, marginBottom: kickerSize * 0.9 }}>{copy.kicker}</div>

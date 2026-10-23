@@ -3,7 +3,7 @@
 // creators, fitness, music, sales, events, young audiences.
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { DesignProps } from "../design";
-import { fitLines } from "../fit";
+import { balancedLines, fitLines } from "../fit";
 import { fontFamily, type FontName } from "../fonts";
 import { formatFromSize, STORY_SAFE } from "../formats";
 import { alpha, Grain } from "../fx";
@@ -50,8 +50,11 @@ export const BoldRepeat: React.FC<DesignProps> = ({ brand, copy, assets, subject
   const heroBox: Box = { left: heroLeft, top: floor - heroH, width: heroW, height: heroH };
 
   // The sticker with the promise: in front of the lecturer's chest, on the far side in wide.
-  const stickerW = W * (wide ? 0.36 : tall ? 0.84 : 0.62);
-  const subSize = Math.round((wide ? H : W) * (wide ? 0.05 : tall ? 0.055 : 0.052));
+  // Two balanced lines, as large as the sticker allows (never a column of one-word lines).
+  const stickerW = W * (wide ? 0.4 : tall ? 0.84 : 0.66);
+  const subLines = balancedLines(copy.subtitle);
+  const subCap = Math.round((wide ? H : W) * (wide ? 0.05 : tall ? 0.055 : 0.052));
+  const subSize = Math.min(subCap, fitLines(subLines, stickerW - subCap * 1.9, head) * 0.95);
   const stickerBox: Box = wide
     ? { left: subjectSide === "left" ? W * 0.58 : W * 0.06, top: H * 0.56, width: stickerW, height: H * 0.34 }
     : { left: (W - stickerW) / 2, top: safeBottom - subSize * 5.4, width: stickerW, height: subSize * 5.4 };
@@ -128,12 +131,15 @@ export const BoldRepeat: React.FC<DesignProps> = ({ brand, copy, assets, subject
             borderRadius: subSize * 0.35,
             rotate: subjectSide === "left" ? "-3deg" : "3deg",
             textAlign: "center",
-            textWrap: "balance",
             boxShadow: `${subSize * 0.18}px ${subSize * 0.22}px 0 ${ink}, 0 ${subSize * 0.5}px ${subSize * 1.2}px #000000${alpha(0.3)}`,
             maxWidth: stickerW,
           }}
         >
-          {copy.subtitle}
+          {subLines.map((l, i) => (
+            <div key={i} style={{ whiteSpace: "nowrap" }}>
+              {l}
+            </div>
+          ))}
         </div>
       </Placed>
 
