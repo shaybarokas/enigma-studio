@@ -2,6 +2,7 @@
 
 // The signed-in account on the client: plan and credit balance (one shared store), the header
 // badge, and the upgrade prompt every paywalled action opens (402 from the API).
+import { WA_TEXT, WhatsAppIcon, WhatsAppLink } from "./whatsapp";
 import Link from "next/link";
 import { useEffect, useSyncExternalStore } from "react";
 import type { PlanId } from "@/lib/plans";
@@ -109,6 +110,10 @@ export function UpgradeDialog() {
         <button onClick={() => set({ upgrade: null })} className="mt-2 w-full rounded-full py-2 text-sm font-semibold text-muted hover:text-text">
           אחר כך
         </button>
+        <WhatsAppLink text={WA_TEXT.billing} className="mt-1 inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-brand underline-offset-2 hover:underline">
+          <WhatsAppIcon className="size-4" />
+          שאלה על המנוי? עזרה בוואטסאפ
+        </WhatsAppLink>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signOut } from "../(auth)/actions";
 import { CreditsBadge, UpgradeDialog } from "@/components/account";
+import { WA_TEXT, WhatsAppIcon, WhatsAppLink } from "@/components/whatsapp";
 
 export default function StudioLayout({ children }: LayoutProps<"/studio">) {
   return (
@@ -11,6 +12,13 @@ export default function StudioLayout({ children }: LayoutProps<"/studio">) {
         </Link>
         <div className="flex items-center gap-2">
           <CreditsBadge />
+          <WhatsAppLink
+            text={WA_TEXT.studio}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-muted transition hover:bg-surface hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <WhatsAppIcon className="size-4" />
+            <span className="hidden sm:inline">עזרה בוואטסאפ</span>
+          </WhatsAppLink>
           <form action={signOut}>
           <button className="rounded-full px-3 py-1.5 text-sm font-semibold text-muted transition hover:bg-surface hover:text-text">
             יציאה

@@ -1,5 +1,6 @@
 "use client";
 
+import { WA_TEXT, WhatsAppIcon, WhatsAppLink } from "@/components/whatsapp";
 import Link from "next/link";
 import { useState } from "react";
 import { COST, PACKS, PLANS, PLAN_FEATURES, ils, type Interval, type PlanId } from "@/lib/plans";
@@ -77,6 +78,13 @@ export function Pricing() {
           </p>
         </div>
       </div>
+      <p className="text-center text-sm text-muted">
+        לא בטוחים איזה מסלול מתאים?{" "}
+        <WhatsAppLink text={WA_TEXT.pricing} className="inline-flex items-center gap-1.5 font-bold text-brand underline-offset-2 hover:underline">
+          <WhatsAppIcon className="size-4" />
+          דברו עם ליאור בוואטסאפ
+        </WhatsAppLink>
+      </p>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LIOR, WA_TEXT, WhatsAppFloat, WhatsAppLink } from "@/components/whatsapp";
 import { SITE } from "@/lib/site";
 
 const NAV = [
@@ -62,9 +63,14 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
           © 2026 {SITE.name} · {SITE.operator}, {SITE.operatorType} ·{" "}
           <a href={`mailto:${SITE.contactEmail}`} dir="ltr" className="hover:text-text">
             {SITE.contactEmail}
-          </a>
+          </a>{" "}
+          ·{" "}
+          <WhatsAppLink text={WA_TEXT.site} className="underline-offset-2 hover:text-text hover:underline">
+            וואטסאפ: <span dir="ltr">{LIOR.display}</span>
+          </WhatsAppLink>
         </p>
       </footer>
+      <WhatsAppFloat />
     </div>
   );
 }

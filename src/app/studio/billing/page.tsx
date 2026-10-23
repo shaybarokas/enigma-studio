@@ -4,6 +4,7 @@ import { balance, getAccount } from "@/lib/credits";
 import { getUserAndClient } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdmin } from "@/lib/admin";
+import { WA_TEXT, WhatsAppIcon, WhatsAppLink } from "@/components/whatsapp";
 import { Billing, type BillingAccount, type Order } from "./billing";
 
 export const metadata = { title: "מסלולים וקרדיטים | Enigma Studio" };
@@ -47,6 +48,13 @@ async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billi
   return (
     <>
       <Billing account={account} orders={(orders ?? []) as Order[]} status={typeof status === "string" ? status : null} />
+      <p className="pb-8 text-center text-sm text-muted">
+        יש שאלה על המנוי או הקרדיטים?{" "}
+        <WhatsAppLink text={WA_TEXT.billing} className="inline-flex items-center gap-1.5 font-bold text-brand underline-offset-2 hover:underline">
+          <WhatsAppIcon className="size-4" />
+          עזרה בוואטסאפ
+        </WhatsAppLink>
+      </p>
       {isAdmin(user) && (
         <p className="pb-8 text-center text-sm">
           <Link href="/studio/admin" className="font-semibold text-brand hover:underline">
