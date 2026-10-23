@@ -38,6 +38,7 @@ function lines(words: Word[]) {
 
 const analysisSchema = z.object({
   summary: z.string().describe("Hebrew, one or two sentences: what the clip shows and who is in it"),
+  speakerX: z.number().describe("where the lecturer (or the main action) stands across the frame, 0 = left edge, 1 = right edge; 0.5 if centred or unclear"),
   highlights: z
     .array(
       z.object({
@@ -79,7 +80,7 @@ A clip may be a whole recorded lesson (often a landscape screen of slides with t
     .map((h) => ({ ...h, start: Math.max(0, h.start), end: Math.min(clip.seconds, h.end) }))
     .filter((h) => h.end - h.start >= 1.2)
     .slice(0, 8);
-  return { ...clip, words, summary: out.summary, highlights, status: "ready" };
+  return { ...clip, words, summary: out.summary, x: Math.min(0.9, Math.max(0.1, out.speakerX)), highlights, status: "ready" };
 }
 
 /** What the director needs to know about the clips when writing a storyboard. */

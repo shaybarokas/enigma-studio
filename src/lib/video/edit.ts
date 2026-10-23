@@ -36,16 +36,22 @@ function transitionInto(kind: Storyboard["kind"], cur: Beat, next: Beat, seenLec
   return i % 2 ? "whip" : "zoom";
 }
 
-// A cut inside the beat at the word boundary nearest its middle, when the beat is long enough for
-// two shots (wide, then close) and the picture can be reframed.
-function innerCut(v: Voiced, lead: number): number | undefined {
+// Cuts inside the beat, so no picture holds longer than about two seconds: each falls on a word's
+// start (a breath before it), at least 1.6s after the last cut and 1.1s before the line ends. Up to
+// three per beat; each starts a new angle (wide, close, the cut-away, another side).
+function innerCuts(v: Voiced, lead: number): number[] {
   // Footage and AI video already move: they are not reframed.
-  if (v.motion || !["lecturer", "scene", "cover", "props"].includes(v.beat.visual) || v.seconds < 3.2) return undefined;
-  const mid = v.seconds / 2;
-  const candidates = v.words.slice(1).filter((w) => w.start > 1.2 && v.seconds - w.start > 1.2);
-  if (!candidates.length) return undefined;
-  const best = candidates.reduce((a, w) => (Math.abs(w.start - mid) < Math.abs(a.start - mid) ? w : a));
-  return lead + Math.round(best.start * FPS) - 2; // a breath before the word
+  if (v.motion || !["lecturer", "scene", "cover", "props"].includes(v.beat.visual) || v.seconds < 2.8) return [];
+  const cuts: number[] = [];
+  let last = 0;
+  for (const w of v.words.slice(1)) {
+    if (cuts.length >= 3) break;
+    if (w.start - last >= 1.6 && v.seconds - w.start >= 1.1) {
+      cuts.push(lead + Math.round(w.start * FPS) - 2);
+      last = w.start;
+    }
+  }
+  return cuts;
 }
 
 /**
@@ -53,7 +59,7 @@ function innerCut(v: Voiced, lead: number): number | undefined {
  * leads the voice); a beat ends on the music grid after its last word, and never while the next
  * transition would cover a word.
  */
-export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: string, images: Record<string, string>): Scene[] {
+export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: string, images: Record<string, string>, inserts: Record<string, Scene["insert"]> = {}): Scene[] {
   const grid = (FPS * 60) / bpmOf(musicPrompt) / 2; // half a beat, in frames
   let seenLecturer = false;
   const transitions = voiced.map((v, i) => {
@@ -84,6 +90,7 @@ export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: st
             src: v.clip.url,
             start: v.beat.clipStart,
             aspect: v.clip.aspect,
+            x: v.clip.x ?? 0.5,
             audio: speaks,
             // Narration longer than the chosen span: the footage slows a little (never below 0.6×)
             // rather than running past its moment.
@@ -94,7 +101,8 @@ export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: st
       words: v.words.map((w) => ({ ...w, start: w.start + lead / FPS, end: w.end + lead / FPS })),
       lead: Math.round(lead),
       durationInFrames: Math.round(durationInFrames),
-      cut: innerCut(v, Math.round(lead)),
+      cuts: innerCuts(v, Math.round(lead)),
+      insert: inserts[v.beat.id],
       transition: transitions[i],
     } satisfies Scene;
   });

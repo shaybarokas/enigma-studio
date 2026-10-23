@@ -29,7 +29,7 @@ const beatSchema = z.object({
   clipStart: z.number().describe("for visual=clip: where the cut starts in the clip, seconds; else 0"),
   clipEnd: z.number().describe("for visual=clip: where it ends, seconds; else 0"),
   clipAudio: z.boolean().describe("for visual=clip: true when the lecturer's own words in the clip are heard (a quote moment), and voice is ''; else false"),
-  shot: z.string().describe("for visual=scene: what the camera sees in this moment, one short Hebrew sentence (a concrete image from the field's world, no text in it); else ''"),
+  shot: z.string().describe("one short Hebrew sentence: a concrete image from the field's world, no text in it. For visual=scene it is the picture; for lecturer/cover/props it is the cut-away the camera goes to mid-beat. '' for list, logo, clip and the cta"),
   emphasis: z.array(z.string()).describe("1–2 words of the voice line to colour in captions"),
 });
 // Set by the user only (it costs credits): a scene beat brought to life as an AI video clip.
@@ -67,8 +67,8 @@ const SYSTEM = `You are the video director and copywriter of Enigma Studio (ENIG
 Each beat is one narration line (voice) with what the viewer sees:
 - voice: spoken Israeli Hebrew, natural rhythm, 4–12 words (short lines cut better). No marketing clichés ("הזדמנות של פעם בחיים", "אל תפספסו"), no exclamation spam.
 - title: the big on-screen words for that moment, ≤ 5 words, punchy, NOT a copy of the narration (it adds or distils). sub: optional, ≤ 8 words.
-- visual: what fills the frame. lecturer = the lecturer's photo (only if there is one); scene = the cinematic world of the field; cover = the kit's display graphic; props = the field's objects (only if the design has props); list = items on screen (outcomes); logo = the brand's logo (only if there is one). Vary visuals so no two neighbouring beats look the same.
-- shot: only for visual=scene, a concrete cinematic image for that exact moment (e.g. "ידיים מקפלות בצק על משטח עץ, אור חלון רך"), different in every scene beat. Each one is generated as its own still, so the video doesn't repeat one picture.
+- visual: what fills the frame. lecturer = the lecturer's photo (only if there is one); scene = the cinematic world of the field; cover = the kit's display graphic (at most ONCE in the video, usually the reveal or the offer); props = the field's objects (only if the design has props); list = items on screen (outcomes); logo = the brand's logo (only if there is one). Vary visuals so no two neighbouring beats look the same.
+- shot: a concrete cinematic image for that exact moment (e.g. "ידיים מקפלות בצק על משטח עץ, אור חלון רך"), different in every beat. For scene beats it is the picture; for lecturer, cover and props beats it is the cut-away the editor cuts to mid-beat (so the video keeps changing pictures). Each is generated as its own still. Write one for every beat except list, logo, clip and the cta.
 - items: only for visual=list, 3–5 outcomes, ≤ 5 words each.
 - visual=clip: a moment of real footage from the course (only from "clips" in the material, with its clipId and a moment's exact start/end). Real footage is the strongest proof: when clips exist, use 1–3 of them (glimpse, lecturer, proof). A moment marked quote=true can be a beat of its own: clipAudio=true and voice '' (the lecturer is heard saying it; the title distils it). Otherwise the narration runs over the clip (clipAudio=false) and the clip's span should be at least as long as the line.
 - emphasis: 1–2 words of the voice line, exactly as written there.
@@ -78,7 +78,7 @@ Rules for the narration:
 - Numbers and prices as words ("תשע מאות תשעים שקלים"), no abbreviations or symbols in voice. On screen (title/sub) numbers stay as digits ("990 ₪").
 - Never invent facts, results, testimonials or credentials that are not in the material.
 - music: English prompt for instrumental music fitting the tone, with tempo (e.g. "cinematic dark hybrid trailer, pulses and hits, 100 bpm, instrumental"); musicMood: the same in 2–4 Hebrew words.
-- captions: "bold" unless the tone calls for "box" (busy visuals) or "minimal" (calm, premium).
+- captions: "bold" (the default: read at a glance on a phone, without sound), or "box" over busy pictures. Never "minimal" unless the user asks for it.
 Never mention internal method names or frameworks.`;
 
 const draftSchema = storyboardSchema.omit({ kind: true, voice: true }).extend({ beats: z.array(beatSchema.omit({ id: true })) });
@@ -123,6 +123,16 @@ export function checkClips<T extends Omit<Beat, "id" | "motion">>(beats: T[], cl
     .filter((b) => b.voice.trim() || (b.visual === "clip" && b.clipAudio));
 }
 
+/** The display graphic appears once: a second (or third) cover beat becomes the lecturer, or a scene. */
+function oneCover<T extends Omit<Beat, "id" | "motion">>(beats: T[], hasLecturer: boolean): T[] {
+  let seen = false;
+  return beats.map((b) => {
+    if (b.visual !== "cover") return b;
+    if (!seen) return ((seen = true), b);
+    return { ...b, visual: hasLecturer ? ("lecturer" as const) : ("scene" as const) };
+  });
+}
+
 /** The agent's first storyboard for a kit, held to the kind's length. */
 export async function writeStoryboard(kind: Storyboard["kind"], voice: string, m: Material): Promise<Storyboard> {
   const draft = await structured({
@@ -132,7 +142,7 @@ export async function writeStoryboard(kind: Storyboard["kind"], voice: string, m
     messages: [{ role: "user", content: `${SHAPES[kind]}\n\nהחומר:\n${JSON.stringify(material(m), null, 2)}` }],
   });
   // The voice's misreadings are fixed before the user sees the draft.
-  const sb: Storyboard = { kind, voice, ...draft, beats: withIds(checkClips(await reviewForSpeech(draft.beats), m.clips)) };
+  const sb: Storyboard = { kind, voice, ...draft, beats: withIds(oneCover(checkClips(await reviewForSpeech(draft.beats), m.clips), Boolean(m.design.assets.subject))) };
   return fitLength(sb, m);
 }
 
@@ -171,7 +181,7 @@ export async function reviseStoryboard(sb: Storyboard, instruction: string, m: M
     ],
   });
   // Unchanged beats keep their ids (their place in the editor) and the user's AI-video choice.
-  const beats = checkClips(await reviewForSpeech(draft.beats), m.clips).map((b, i) => {
+  const beats = oneCover(checkClips(await reviewForSpeech(draft.beats), m.clips), Boolean(m.design.assets.subject)).map((b, i) => {
     const same = sb.beats.find((o) => o.voice === b.voice && o.title === b.title && o.visual === b.visual);
     return { ...b, id: same?.id ?? `b${Date.now().toString(36)}${i}`, motion: b.visual === "scene" && Boolean(same?.motion) };
   });

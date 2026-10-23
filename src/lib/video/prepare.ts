@@ -3,7 +3,7 @@
 import sharp from "sharp";
 import type { DesignProps } from "@/engine/design";
 import { storeUpload } from "../agent/assets";
-import { FPS, videoDuration, type VideoProps } from "@/engine/video/schema";
+import { FPS, videoDuration, type Scene, type VideoProps } from "@/engine/video/schema";
 import { compose, speak, type VoiceKey } from "./audio";
 import { wordsIn } from "./clips";
 import { edit, type Voiced } from "./edit";
@@ -43,6 +43,30 @@ async function backdrops(design: DesignProps, folder: string) {
     console.error("[backdrops]", e);
     return undefined; // the shots fall back to a CSS blur
   }
+}
+
+/**
+ * What each beat cuts away to in its middle. Real footage first: the course clips' picture moments
+ * (not the ones a clip beat already shows) go to the beats about the course and its lecturer; the
+ * other beats with a still of their own cut to it. A scene beat's still is its main picture instead.
+ */
+function cutaways(beats: Storyboard["beats"], stills: Record<string, string>, clips: CourseClip[]) {
+  const images: Record<string, string> = {};
+  const inserts: Record<string, Scene["insert"]> = {};
+  const used = new Set(beats.filter((b) => b.visual === "clip").map((b) => `${b.clipId}@${Math.round(b.clipStart)}`));
+  const moments = clips
+    .filter((c) => c.status === "ready")
+    .flatMap((c) => (c.highlights ?? []).filter((h) => !h.quote && !used.has(`${c.id}@${Math.round(h.start)}`)).map((h) => ({ clip: c, start: h.start })));
+  const eligible = (b: Storyboard["beats"][number]) => ["lecturer", "cover", "props", "scene"].includes(b.visual) && b.role !== "cta" && !b.motion;
+  for (const b of beats) {
+    if (b.visual === "scene" && stills[b.id]) images[b.id] = stills[b.id];
+    if (!eligible(b)) continue;
+    const aboutCourse = ["glimpse", "proof", "lecturer", "solution", "outcomes"].includes(b.role);
+    const m = aboutCourse || !stills[b.id] || b.visual === "scene" ? moments.shift() : undefined;
+    if (m) inserts[b.id] = { clip: { src: m.clip.url, start: m.start, aspect: m.clip.aspect, x: m.clip.x ?? 0.5 } };
+    else if (b.visual !== "scene" && stills[b.id]) inserts[b.id] = { image: stills[b.id] };
+  }
+  return { images, inserts };
 }
 
 /** Everything the render needs: narration, the beats' stills, the edit, music and sound effects. */
@@ -85,9 +109,10 @@ export async function prepareVideo(
     const v = await speak(spoken[i], b.voice, opts.voice, `${folder}/vo-${i}.mp3`);
     voiced.push({ beat: b, clip, seconds: v.seconds, words: v.words, audio: v.url });
   }
-  const [blurred, { images, motion }, sfx] = await visuals;
+  const [blurred, { images: stills, motion }, sfx] = await visuals;
   for (const v of voiced) v.motion = motion[v.beat.id];
-  const scenes = edit(opts.storyboard.kind, voiced, opts.storyboard.music, images).map((s, i) => ({ ...s, audio: voiced[i].audio }));
+  const { images, inserts } = cutaways(beats, stills, opts.clips);
+  const scenes = edit(opts.storyboard.kind, voiced, opts.storyboard.music, images, inserts).map((s, i) => ({ ...s, audio: voiced[i].audio }));
   const music = await compose(
     opts.storyboard.music,
     videoDuration(scenes) / FPS + 1,

@@ -8,11 +8,19 @@ import type { TemplateId } from "../catalog";
 import { fontFamily, useFontsReady, type FontName } from "../fonts";
 import { Watermark } from "../watermark";
 import { Captions } from "./captions";
-import { sceneStarts, TRANSITION_FRAMES, videoDuration, type VideoProps } from "./schema";
+import { sceneStarts, TRANSITION_FRAMES, videoDuration, type Scene, type VideoProps } from "./schema";
 import { captioned, listTimes, Shot } from "./shots";
 import { PRESENTATIONS } from "./transitions";
 
 const MUSIC_UNDER_VOICE = 0.11;
+const FIRST_LEAD = 32; // frames the opening shot's animations are already into at frame 0
+
+// A scene seen from `frames` later: its cuts and words move with it, so they stay on the voice.
+const ahead = (s: Scene, frames: number): Scene => ({
+  ...s,
+  cuts: s.cuts.map((c) => c + frames),
+  words: s.words.map((w) => ({ ...w, start: w.start + frames / 30, end: w.end + frames / 30 })),
+});
 const MUSIC_OPEN = 0.3;
 
 const Video: React.FC<VideoProps> = ({ kind, design, cover, scenes, music, captions, sfx, backdrops }) => {
@@ -49,7 +57,11 @@ const Video: React.FC<VideoProps> = ({ kind, design, cover, scenes, music, capti
         {scenes.flatMap((scene, i) => {
           const seq = (
             <TransitionSeries.Sequence key={`s${i}`} durationInFrames={scene.durationInFrames}>
-              <Shot scene={scene} design={design} kind={kind} cover={cover as TemplateId} backdrops={backdrops} />
+              {/* The first frame is the thumbnail and the moment that stops the scroll: the opening shot
+                  starts with its title and picture already in place. */}
+              <Sequence from={i === 0 ? -FIRST_LEAD : 0} durationInFrames={scene.durationInFrames + (i === 0 ? FIRST_LEAD : 0)} layout="none">
+                <Shot scene={i === 0 ? ahead(scene, FIRST_LEAD) : scene} design={design} kind={kind} cover={cover as TemplateId} backdrops={backdrops} />
+              </Sequence>
               {captions !== "off" && captioned(scene) && <Captions scene={scene} style={captions} font={capFont} accent={design.brand.palette.accent} />}
               {scene.audio && (
                 <Sequence from={scene.lead} layout="none">

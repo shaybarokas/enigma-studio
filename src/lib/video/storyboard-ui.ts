@@ -63,6 +63,7 @@ export type CourseClip = {
   name: string;
   seconds: number;
   aspect: number; // width / height
+  x?: number; // where the speaker stands across the frame (0–1), for cropping wide footage
   thumbs: { t: number; url: string }[];
   status: "analyzing" | "ready" | "failed";
   summary?: string; // what the clip shows, Hebrew

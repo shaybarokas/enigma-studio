@@ -13,7 +13,7 @@ const composition = await selectComposition({ serveUrl, id: "video", inputProps,
 if (frames.length) {
   for (const f of frames.map(Number)) {
     const output = path.resolve(out, `f${String(f).padStart(4, "0")}.jpg`);
-    await renderStill({ composition, serveUrl, output, frame: f, inputProps, imageFormat: "jpeg", jpegQuality: 85, puppeteerInstance: browser });
+    await renderStill({ composition, serveUrl, output, frame: f, inputProps, imageFormat: "jpeg", jpegQuality: 85, puppeteerInstance: browser, timeoutInMilliseconds: 240000 });
     console.log(output);
   }
 } else {

@@ -27,22 +27,37 @@ const fonts = (d: DesignProps) => ({
   body: fontFamily(d.brand.bodyFont as FontName),
 });
 
-/** 0 before the beat's inner cut, 1 after it; and the frame within the current angle. */
-function useAngle(scene: Scene) {
+/** Which angle of the beat is on screen (a new one after each inner cut), and the frame within it. */
+export function useAngle(scene: Scene) {
   const frame = useCurrentFrame();
-  const second = scene.cut !== undefined && frame >= scene.cut;
-  return { second, local: second ? frame - scene.cut! : frame, frame };
+  const { durationInFrames } = useVideoConfig();
+  const cuts = scene.cuts ?? [];
+  let angle = 0;
+  while (angle < cuts.length && frame >= cuts[angle]) angle++;
+  const from = angle ? cuts[angle - 1] : 0;
+  const to = cuts[angle] ?? durationInFrames;
+  return { angle, second: angle % 2 === 1, local: frame - from, span: Math.max(1, to - from), frame };
 }
 
-/** A still under a moving camera: a slow push on the wide angle, a tighter, drifting close-up after the cut. */
+// The camera's framings, angle after angle: wide with a push, close on the focus, a medium from the
+// other side, very close. Each drifts a little while it holds.
+const FRAMINGS = [
+  { scale: 1.04, grow: 0.1, origin: "center" },
+  { scale: 1.42, grow: 0.06, origin: "focus" },
+  { scale: 1.2, grow: 0.07, origin: "mirror" },
+  { scale: 1.58, grow: 0.05, origin: "focus" },
+] as const;
+
+/** A still under a moving camera, reframed at every inner cut of the beat. */
 const Camera: React.FC<{ src: string; scene: Scene; focus?: [number, number]; filter?: string; kind: ShotProps["kind"] }> = ({ src, scene, focus = [50, 42], filter, kind }) => {
-  const { second, local } = useAngle(scene);
-  const { durationInFrames } = useVideoConfig();
-  const span = second ? durationInFrames - (scene.cut ?? 0) : (scene.cut ?? durationInFrames);
-  const k = Math.min(1, local / Math.max(1, span));
+  const { angle, local, span } = useAngle(scene);
+  const k = Math.min(1, local / span);
   const energy = kind === "marketing" ? 1.4 : 1;
-  const scale = second ? 1.42 + 0.06 * k * energy : 1.04 + 0.1 * k * energy;
-  const drift = second ? (k - 0.5) * 2.4 * energy : 0;
+  const f = FRAMINGS[angle % FRAMINGS.length];
+  const scale = f.scale + f.grow * k * energy;
+  const drift = angle ? (k - 0.5) * 2.4 * energy * (angle % 2 ? 1 : -1) : 0;
+  const second = angle > 0;
+  const origin = f.origin === "center" ? "50% 50%" : f.origin === "focus" ? `${focus[0]}% ${focus[1]}%` : `${100 - focus[0]}% ${focus[1]}%`;
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <Img
@@ -52,7 +67,7 @@ const Camera: React.FC<{ src: string; scene: Scene; focus?: [number, number]; fi
           height: "100%",
           objectFit: "cover",
           transform: `scale(${scale}) translateX(${drift}%)`,
-          transformOrigin: second ? `${focus[0]}% ${focus[1]}%` : "50% 50%",
+          transformOrigin: second ? origin : "50% 50%",
           filter,
         }}
       />
@@ -105,7 +120,7 @@ export const SceneShot: React.FC<ShotProps> = (p) => {
   const rate = Math.max(0.6, Math.min(1, (5 * fps) / durationInFrames));
   return (
     <AbsoluteFill style={{ background: design.brand.palette.bg }}>
-      <Camera src={src} scene={scene.motion ? { ...scene, cut: undefined } : scene} kind={kind} focus={[55, 45]} filter={grade} />
+      <Camera src={src} scene={scene.motion ? { ...scene, cuts: [] } : scene} kind={kind} focus={[55, 45]} filter={grade} />
       {scene.motion && (
         <Sequence durationInFrames={Math.floor((5 * fps) / rate) - 2} layout="none">
           <AbsoluteFill>
@@ -121,80 +136,100 @@ export const SceneShot: React.FC<ShotProps> = (p) => {
   );
 };
 
-/** Footage from the course. Vertical footage fills the frame; landscape footage floats in a frame of
- * its own over the blurred scene, tagged as the real thing, with the title above it. */
+/** Footage from the course, filling the frame: wide footage is cropped around the speaker (their
+ * place across the frame comes from the clip's analysis), tagged as the real thing. */
 export const ClipShot: React.FC<ShotProps> = (p) => {
   const { scene, design, kind } = p;
-  const { width: W, height: H, fps, durationInFrames } = useVideoConfig();
+  const { width: W, height: H, durationInFrames } = useVideoConfig();
   const frame = useCurrentFrame();
   const clip = scene.clip;
   if (!clip) return <SceneShot {...p} />;
-  const { bg, accent, ink } = design.brand.palette;
   const f = fonts(design);
   const k = frame / durationInFrames;
-  const video = (style: React.CSSProperties) => (
-    <OffthreadVideo src={clip.src} startFrom={Math.round(clip.start * fps)} playbackRate={clip.rate} muted={!clip.audio} style={{ width: "100%", height: "100%", objectFit: "cover", ...style }} />
-  );
-  if (clip.aspect < 0.8) {
-    return (
-      <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
-        <AbsoluteFill style={{ transform: `scale(${1.03 + 0.05 * k})` }}>{video({})}</AbsoluteFill>
-        <Scrim design={design} at="top" strength={scene.title ? 0.9 : 0} />
-        <CaptionBed />
-        <Title {...p} zone="top" />
-        <Finish kind={kind} />
-      </AbsoluteFill>
-    );
-  }
-  const deep = backdrop(p, "deep", 24);
-  const enter = spring({ frame, fps, config: { damping: 18, stiffness: 140 } });
-  const w = W * 0.92;
-  const h = w / clip.aspect;
-  const top = H * 0.49 - h / 2;
-  const tag = W * 0.032;
+  const tag = W * 0.03;
   return (
-    <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
-      <AbsoluteFill style={{ transform: `scale(${1.1 + 0.04 * k})` }}>
-        <Img src={deep.src} style={{ width: "100%", height: "100%", objectFit: "cover", filter: `${deep.blur}brightness(${isLightBg(bg) ? 0.85 : 0.45})` }} />
+    <AbsoluteFill style={{ background: design.brand.palette.bg, overflow: "hidden" }}>
+      <AbsoluteFill style={{ transform: `scale(${1.02 + 0.05 * k})` }}>
+        <Footage src={clip.src} start={clip.start} rate={clip.rate} muted={!clip.audio} x={clip.x} />
       </AbsoluteFill>
-      <Glow x={W / 2} y={H * 0.49} size={W * 1.3} color={accent} opacity={0.22} />
+      {/* Course footage often carries its own titles at the top: they are blurred and covered by the
+          ground under ours, so two titles never read at once. */}
+      {scene.title && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            bottom: "auto",
+            height: H * 0.36,
+            backdropFilter: "blur(14px)",
+            maskImage: "linear-gradient(to bottom, #000 70%, transparent)",
+            WebkitMaskImage: "linear-gradient(to bottom, #000 70%, transparent)",
+          }}
+        />
+      )}
+      <Scrim design={design} at="top" strength={scene.title ? 1.25 : 0.4} />
+      <CaptionBed />
       <div
         style={{
           position: "absolute",
-          left: (W - w) / 2,
-          top,
-          width: w,
-          height: h,
-          borderRadius: W * 0.03,
-          overflow: "hidden",
-          boxShadow: `0 ${H * 0.02}px ${H * 0.06}px #000000${alpha(0.6)}, 0 0 0 2px ${accent}${alpha(0.55)}`,
-          transform: `scale(${interpolate(enter, [0, 1], [0.86, 1]) * (1 + 0.025 * k)})`,
-          opacity: interpolate(enter, [0, 0.3], [0, 1], { extrapolateRight: "clamp" }),
-        }}
-      >
-        {video({})}
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          top: top - tag * 2.4,
-          right: (W - w) / 2,
+          top: H * 0.315,
+          right: W * 0.06,
           display: "flex",
           alignItems: "center",
           gap: tag * 0.4,
+          padding: `${tag * 0.25}px ${tag * 0.6}px`,
+          borderRadius: tag,
+          background: `#000000${alpha(0.45)}`,
           direction: "rtl",
           fontFamily: f.body,
           fontWeight: 800,
           fontSize: tag,
-          color: ink,
-          opacity: enter,
+          color: "#ffffff",
         }}
       >
-        <span style={{ width: tag * 0.55, height: tag * 0.55, borderRadius: "50%", background: "#ff3b30", opacity: 0.6 + 0.4 * Math.abs(Math.sin(frame / 9)) }} />
+        <span style={{ width: tag * 0.5, height: tag * 0.5, borderRadius: "50%", background: "#ff3b30", opacity: 0.6 + 0.4 * Math.abs(Math.sin(frame / 9)) }} />
         מתוך הקורס
       </div>
-      <Scrim design={design} at="top" strength={scene.title ? 0.7 : 0} />
       <Title {...p} zone="top" />
+      <Finish kind={kind} />
+    </AbsoluteFill>
+  );
+};
+
+/** A clip of the course playing full frame, cropped around the speaker. */
+const Footage: React.FC<{ src: string; start: number; rate?: number; muted: boolean; x?: number }> = ({ src, start, rate = 1, muted, x = 0.5 }) => {
+  const { fps } = useVideoConfig();
+  return (
+    <OffthreadVideo
+      src={src}
+      startFrom={Math.round(start * fps)}
+      playbackRate={rate}
+      muted={muted}
+      style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${Math.round(x * 100)}% 40%` }}
+    />
+  );
+};
+
+/** The cut-away in the middle of a beat: its own still under a close, drifting camera, or a moment of
+ * the course's footage. The beat's title stays where it was. */
+const InsertShot: React.FC<ShotProps & { zone: "top" | "middle" | null }> = (p) => {
+  const { scene, design, kind, zone } = p;
+  const { local, span } = useAngle(scene);
+  const ins = scene.insert!;
+  const light = isLightBg(design.brand.palette.bg);
+  const t = local / span;
+  return (
+    <AbsoluteFill style={{ background: design.brand.palette.bg, overflow: "hidden" }}>
+      <AbsoluteFill style={{ transform: `scale(${1.08 + 0.06 * t}) translateX(${(t - 0.5) * 2}%)` }}>
+        {ins.clip ? (
+          <Footage src={ins.clip.src} start={ins.clip.start} muted x={ins.clip.x} />
+        ) : (
+          <Img src={ins.image!} style={{ width: "100%", height: "100%", objectFit: "cover", filter: light ? "saturate(0.95)" : "brightness(0.85) saturate(0.9)" }} />
+        )}
+      </AbsoluteFill>
+      {zone && <Scrim design={design} at={zone} strength={scene.title ? 1 : 0} />}
+      <CaptionBed />
+      {zone && <Title {...p} zone={zone} />}
       <Finish kind={kind} />
     </AbsoluteFill>
   );
@@ -205,7 +240,7 @@ export const ClipShot: React.FC<ShotProps> = (p) => {
 export const LecturerShot: React.FC<ShotProps> = (p) => {
   const { scene, design, kind } = p;
   const { width: W, height: H, durationInFrames } = useVideoConfig();
-  const { second, local, frame } = useAngle(scene);
+  const { angle, local, span, frame } = useAngle(scene);
   const s = design.assets.subject;
   if (!s) return <SceneShot {...p} />;
   const soft = backdrop(p, "soft", 3);
@@ -216,7 +251,11 @@ export const LecturerShot: React.FC<ShotProps> = (p) => {
   const h = w / s.aspect;
   const top = Math.max(H * 0.33, H - h * 0.95);
   const faceY = top + Math.min(h, H - top) * 0.16;
-  const close = second ? 1.34 + 0.04 * (local / Math.max(1, durationInFrames - (scene.cut ?? 0))) : 1 + 0.035 * k;
+  // Medium, then close on the face, then a looser medium from the side, then very close.
+  const t = local / span;
+  const close = [1 + 0.035 * k, 1.34 + 0.04 * t, 1.14 + 0.03 * t, 1.5 + 0.03 * t][angle % 4];
+  const sideways = angle % 4 === 2 ? (design.subjectSide === "left" ? 4 : -4) : 0;
+  const second = angle > 0;
   const enter = spring({ frame, fps: 30, config: { damping: 200 }, durationInFrames: 16 });
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
@@ -224,7 +263,7 @@ export const LecturerShot: React.FC<ShotProps> = (p) => {
         <Img src={soft.src} style={{ width: "100%", height: "100%", objectFit: "cover", filter: light ? `${soft.blur}saturate(0.9)` : `${soft.blur}brightness(0.55) saturate(0.85)` }} />
       </AbsoluteFill>
       <Glow x={W / 2} y={faceY} size={W * 1.3} color={accent} opacity={0.22} />
-      <AbsoluteFill style={{ transform: `scale(${close}) translateX(${(k - 0.5) * 1.2}%)`, transformOrigin: `50% ${(faceY / H) * 100}%` }}>
+      <AbsoluteFill style={{ transform: `scale(${close}) translateX(${(k - 0.5) * 1.2 + sideways}%)`, transformOrigin: `50% ${(faceY / H) * 100}%` }}>
         <Hero src={s.src} box={{ left: (W - w) / 2, top, width: w, height: h }} bg={bg} accent={accent} lightFrom={design.subjectSide === "left" ? "right" : "left"} progress={second ? 1 : enter} />
       </AbsoluteFill>
       <AbsoluteFill style={{ background: `linear-gradient(to top, ${bg} 0%, ${bg}${alpha(0.5)} 14%, transparent 34%)` }} />
@@ -236,52 +275,41 @@ export const LecturerShot: React.FC<ShotProps> = (p) => {
   );
 };
 
-/** The kit's display graphic as a poster in space: it swings in on a 3D turn, the light passes over it. */
+/** The kit's display graphic, full screen so its words read: it swings in from a tilted card, then
+ * the camera pushes in a little at each inner cut while a light passes over it. */
 export const CoverShot: React.FC<ShotProps> = (p) => {
   const { scene, design, kind, cover } = p;
-  const { width: W, height: H, fps, durationInFrames } = useVideoConfig();
-  const { second, frame } = useAngle(scene);
+  const { fps } = useVideoConfig();
+  const { angle, local, span, frame } = useAngle(scene);
   const C = TEMPLATES[cover].component;
-  const deep = backdrop(p, "deep", 22);
-  const enter = spring({ frame, fps, config: { damping: 18, stiffness: 120 } });
-  const k = frame / durationInFrames;
-  const turn = second ? -6 + 4 * k : interpolate(enter, [0, 1], [28, 6]) - 4 * k;
-  const scale = second ? 0.62 + 0.02 * k : interpolate(enter, [0, 1], [0.48, 0.56]) + 0.02 * k;
+  const enter = spring({ frame, fps, config: { damping: 20, stiffness: 110 }, durationInFrames: 22 });
+  const t = local / span;
+  const push = angle === 0 ? 1 + 0.04 * t : [1.08, 1.04, 1.12][(angle - 1) % 3] + 0.03 * t;
+  const origin = ["50% 50%", "50% 30%", "50% 60%", "50% 25%"][angle % 4];
   const sweep = interpolate(frame % 90, [10, 50], [-40, 140], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const coverDesign: DesignProps = {
     ...design,
     watermark: false,
     copy: { ...design.copy, ...(scene.title ? { headline: scene.title } : {}), ...(scene.sub ? { subtitle: scene.sub } : {}) },
   };
-  // The card's bottom edge stays above the captions' zone at any scale.
-  const cardTop = H * (ZONES.captions - 0.075) - H / 2 - (H * scale) / 2;
+  const scale = interpolate(enter, [0, 1], [0.62, 1]) * push;
   return (
     <AbsoluteFill style={{ background: design.brand.palette.bg, overflow: "hidden", perspective: 1800 }}>
-      <AbsoluteFill>
-        <Img src={deep.src} style={{ width: "100%", height: "100%", objectFit: "cover", filter: `${deep.blur}brightness(0.5)`, transform: "scale(1.2)" }} />
-      </AbsoluteFill>
-      <Glow x={W / 2} y={H * 0.36} size={W * 1.4} color={design.brand.palette.accent} opacity={0.3} />
-      <div
+      <AbsoluteFill
         style={{
-          position: "absolute",
-          left: 0,
-          top: cardTop,
-          width: W,
-          height: H,
-          transform: `scale(${scale}) rotateY(${turn}deg) rotateX(${second ? 2 : 4}deg)`,
-          transformOrigin: "50% 50%",
-          borderRadius: 40,
+          transform: `scale(${scale}) rotateY(${interpolate(enter, [0, 1], [24, 0])}deg)`,
+          transformOrigin: origin,
+          borderRadius: interpolate(enter, [0, 1], [48, 0]),
           overflow: "hidden",
-          boxShadow: `0 60px 140px #000000${alpha(0.7)}`,
+          boxShadow: `0 60px 140px #000000${alpha(0.7 * (1 - enter))}`,
         }}
       >
-        {/* The graphic as finished (its own entrance would replay inside the card); the card moves. */}
+        {/* The graphic as finished (its own entrance would replay); the camera moves over it. */}
         <Freeze frame={89}>
           <C {...coverDesign} />
         </Freeze>
-        <AbsoluteFill style={{ background: `linear-gradient(110deg, transparent ${sweep - 18}%, #ffffff${alpha(0.22)} ${sweep}%, transparent ${sweep + 18}%)` }} />
-      </div>
-      <CaptionBed />
+        <AbsoluteFill style={{ background: `linear-gradient(110deg, transparent ${sweep - 18}%, #ffffff${alpha(0.18)} ${sweep}%, transparent ${sweep + 18}%)` }} />
+      </AbsoluteFill>
       <Finish kind={kind} />
     </AbsoluteFill>
   );
@@ -302,7 +330,7 @@ export const PropsShot: React.FC<ShotProps> = (p) => {
   ];
   return (
     <AbsoluteFill style={{ background: design.brand.palette.bg, overflow: "hidden" }}>
-      <Camera src={soft.src} scene={{ ...scene, cut: undefined }} kind={kind} filter={`${soft.blur}brightness(0.7)`} />
+      <Camera src={soft.src} scene={{ ...scene, cuts: [] }} kind={kind} filter={`${soft.blur}brightness(0.7)`} />
       <Glow x={W / 2} y={H * 0.48} size={W * 1.2} color={design.brand.palette.accent} opacity={0.25} />
       {props.slice(0, 3).map((prop, i) => {
         const [x, y, size] = spots[i];
@@ -353,7 +381,7 @@ export const ListShot: React.FC<ShotProps> = (p) => {
   const deep = backdrop(p, "deep", 16);
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
-      <Camera src={deep.src} scene={{ ...scene, cut: undefined }} kind={kind} filter={light ? `${deep.blur}saturate(0.9)` : `${deep.blur}brightness(0.5)`} />
+      <Camera src={deep.src} scene={{ ...scene, cuts: [] }} kind={kind} filter={light ? `${deep.blur}saturate(0.9)` : `${deep.blur}brightness(0.5)`} />
       <AbsoluteFill style={{ background: `${bg}${alpha(light ? 0.55 : 0.35)}` }} />
       <Title {...p} zone="top" delay={0} />
       <div style={{ position: "absolute", top: zoneTop, left: W * 0.07, right: W * 0.07, height: zoneH, display: "flex", flexDirection: "column", justifyContent: "center", gap: rowH * 0.18, direction: "rtl" }}>
@@ -402,23 +430,61 @@ export function listTimes(scene: Scene, n: number): number[] {
 /** The brand's logo revealed by light; the title under it. */
 export const LogoShot: React.FC<ShotProps> = (p) => {
   const { scene, design, kind } = p;
-  const { width: W, height: H, fps } = useVideoConfig();
+  const { width: W, height: H, fps, durationInFrames } = useVideoConfig();
   const frame = useCurrentFrame();
   const { bg, ink, muted, accent } = design.brand.palette;
   const f = fonts(design);
-  const enter = spring({ frame, fps, config: { damping: 20, stiffness: 90 } });
-  const sweep = interpolate(frame, [8, 40], [-30, 130], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const light = isLightBg(bg);
   const deep = backdrop(p, "deep", 24);
+  // The reveal: a burst of light, the mark landing from out of focus, a sweep across it, sparks rising.
+  const burst = interpolate(frame, [0, 4, 16], [0, 1, 0], { extrapolateRight: "clamp" });
+  const enter = spring({ frame: frame - 3, fps, config: { damping: 16, stiffness: 120 } });
+  const focus = interpolate(frame, [3, 16], [14, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const sweep = interpolate(frame, [10, 34], [-30, 130], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const drift = 1 + 0.05 * (frame / durationInFrames);
   return (
     <AbsoluteFill style={{ background: bg, overflow: "hidden" }}>
-      <Camera src={deep.src} scene={{ ...scene, cut: undefined }} kind={kind} filter={light ? deep.blur || undefined : `${deep.blur}brightness(0.4)`} />
+      <Camera src={deep.src} scene={{ ...scene, cuts: [] }} kind={kind} filter={light ? deep.blur || undefined : `${deep.blur}brightness(0.35)`} />
       <AbsoluteFill style={{ background: `${bg}${alpha(0.55)}` }} />
-      <Glow x={W / 2} y={H * 0.36} size={W * 1.1} color={accent} opacity={0.35 * enter} />
-      <div style={{ position: "absolute", top: H * 0.24, left: 0, right: 0, height: H * 0.22, display: "flex", alignItems: "center", justifyContent: "center", transform: `scale(${interpolate(enter, [0, 1], [0.7, 1])})`, opacity: enter }}>
+      <Glow x={W / 2} y={H * 0.35} size={W * (0.8 + 0.6 * enter)} color={accent} opacity={0.45 * enter} />
+      {Array.from({ length: 14 }, (_, i) => {
+        const x = ((i * 37) % 100) / 100;
+        const rise = ((frame * (0.6 + (i % 5) * 0.15) + i * 23) % 120) / 120;
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: W * (0.15 + x * 0.7),
+              top: H * (0.52 - rise * 0.32),
+              width: W * 0.006,
+              height: W * 0.006,
+              borderRadius: "50%",
+              background: accent,
+              boxShadow: `0 0 ${W * 0.012}px ${accent}`,
+              opacity: enter * Math.sin(rise * Math.PI) * 0.9,
+            }}
+          />
+        );
+      })}
+      <div
+        style={{
+          position: "absolute",
+          top: H * 0.22,
+          left: 0,
+          right: 0,
+          height: H * 0.24,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transform: `scale(${interpolate(enter, [0, 1], [1.3, 1]) * drift})`,
+          opacity: interpolate(enter, [0, 0.4], [0, 1], { extrapolateRight: "clamp" }),
+          filter: focus > 0.2 ? `blur(${focus}px)` : undefined,
+        }}
+      >
         {design.assets.logo ? (
           <div style={{ position: "relative" }}>
-            <Logo logo={design.assets.logo} height={H * 0.13} maxWidth={W * 0.7} bg={bg} />
+            <Logo logo={design.assets.logo} height={H * 0.14} maxWidth={W * 0.72} bg={bg} />
             <AbsoluteFill style={{ background: `linear-gradient(110deg, transparent ${sweep - 15}%, #ffffff${alpha(0.75)} ${sweep}%, transparent ${sweep + 15}%)`, mixBlendMode: "overlay" }} />
           </div>
         ) : (
@@ -427,7 +493,8 @@ export const LogoShot: React.FC<ShotProps> = (p) => {
           </div>
         )}
       </div>
-      <KineticTitle text={scene.title} sub={scene.sub || undefined} zone={{ top: 0.47, height: 0.16 }} font={f.head} subFont={f.body} ink={ink} accent={accent} kind={kind} emphasis={scene.emphasis} glow={bg} delay={12} />
+      <AbsoluteFill style={{ background: "#ffffff", opacity: burst * (light ? 0.5 : 0.85), mixBlendMode: "screen" }} />
+      <KineticTitle text={scene.title} sub={scene.sub || undefined} zone={{ top: 0.47, height: 0.16 }} font={f.head} subFont={f.body} ink={ink} accent={accent} kind={kind} emphasis={scene.emphasis} glow={bg} delay={10} />
       <Finish kind={kind} />
     </AbsoluteFill>
   );
@@ -480,7 +547,31 @@ export const EndCard: React.FC<ShotProps> = (p) => {
 
 /** The shot for a scene: by its role first (the offer, the close), then by what it shows. */
 export const Shot: React.FC<ShotProps> = (p) => {
-  if (p.scene.role === "cta") return <EndCard {...p} />;
+  const { angle } = useAngle(p.scene);
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  // A small punch-in of the camera on each word the narration stresses.
+  const hot = new Set(p.scene.emphasis.map((w) => w.replace(/[.,!?:;…"״׳']/g, "")));
+  const punch = p.scene.words
+    .filter((w) => hot.has(w.text.replace(/[.,!?:;…"״׳']/g, "")))
+    .reduce((a, w) => {
+      const d = frame - Math.round(w.start * fps);
+      return a + (d < 0 ? 0 : d < 3 ? (d / 3) * 0.045 : Math.max(0, 0.045 * (1 - (d - 3) / 10)));
+    }, 0);
+  // The cut-away takes the beat's second angle when it has one.
+  const zone = p.scene.visual === "scene" ? "middle" : p.scene.visual === "cover" ? null : "top";
+  const inner =
+    p.scene.role === "cta" ? (
+      <EndCard {...p} />
+    ) : angle === 1 && p.scene.insert && ["lecturer", "scene", "cover", "props"].includes(p.scene.visual) ? (
+      <InsertShot {...p} zone={zone} />
+    ) : (
+      <ShotFor {...p} />
+    );
+  return <AbsoluteFill style={{ transform: punch ? `scale(${1 + Math.min(punch, 0.06)})` : undefined }}>{inner}</AbsoluteFill>;
+};
+
+const ShotFor: React.FC<ShotProps> = (p) => {
   switch (p.scene.visual) {
     case "lecturer":
       return <LecturerShot {...p} />;
@@ -499,5 +590,5 @@ export const Shot: React.FC<ShotProps> = (p) => {
   }
 };
 
-/** Whether the captions run over this shot (lists and the end card already show their words). */
-export const captioned = (s: Scene) => s.role !== "cta" && s.visual !== "list";
+/** Whether the captions run over this shot (lists, the display graphic and the end card show their own words). */
+export const captioned = (s: Scene) => s.role !== "cta" && s.visual !== "list" && s.visual !== "cover";

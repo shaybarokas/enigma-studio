@@ -488,10 +488,12 @@ export function StoryboardEditor({
                     כותרת ארוכה תופיע קטנה יותר. עדיף עד 5 מילים.
                   </p>
                 )}
-                {b.visual === "scene" && (
+                {["scene", "lecturer", "cover", "props"].includes(b.visual) && b.role !== "cta" && (
                   <label className="block space-y-1">
                     <span className="text-xs font-bold text-muted">
-                      🎥 מה המצלמה רואה (תמונה שתיווצר לרגע הזה)
+                      {b.visual === "scene"
+                        ? "🎥 מה המצלמה רואה (תמונה שתיווצר לרגע הזה)"
+                        : "🎥 צילום ביניים: לאן המצלמה חותכת באמצע הקטע (לא חובה)"}
                     </span>
                     <input
                       className={field}

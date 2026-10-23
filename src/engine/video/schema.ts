@@ -31,13 +31,19 @@ export const sceneSchema = z.object({
       aspect: z.number(), // its width / height
       audio: z.boolean(), // the lecturer's own words are heard (no narration over it)
       rate: z.number().default(1), // playback speed, slowed a little when the line outlasts the span
+      x: z.number().default(0.5), // where the speaker stands across the frame (0–1): wide footage is cropped around them
     })
     .optional(), // footage from the course
+  // The picture the camera cuts away to in the middle of the beat (b-roll): a still of its own, or a
+  // moment of the course's footage.
+  insert: z
+    .object({ image: z.string().optional(), clip: z.object({ src: z.string(), start: z.number(), aspect: z.number(), x: z.number().default(0.5) }).optional() })
+    .optional(),
   audio: z.string().optional(),
   lead: z.number().default(0), // frames of picture before the narration starts
   words: z.array(wordSchema).default([]), // seconds from the scene's start (lead included)
   durationInFrames: z.number(),
-  cut: z.number().optional(), // a camera cut inside the beat, in frames from its start
+  cuts: z.array(z.number()).default([]), // camera cuts inside the beat (frames from its start): each starts a new angle
   transition: z.enum(TRANSITIONS).default("cut"), // into the next beat
 });
 export type Scene = z.infer<typeof sceneSchema>;

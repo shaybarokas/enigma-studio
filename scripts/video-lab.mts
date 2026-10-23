@@ -44,4 +44,4 @@ const spec = await prepareVideo({
 });
 writeFileSync(out, JSON.stringify(spec));
 console.log(`${out}: ${spec.scenes.length} scenes, ${Math.round((Date.now() - t) / 1000)}s`);
-for (const s of spec.scenes) console.log(`${s.role}/${s.visual} ${s.durationInFrames}f cut=${s.cut ?? "-"} → ${s.transition}${s.image ? " [own still]" : ""}`);
+for (const s of spec.scenes) console.log(`${s.role}/${s.visual} ${s.durationInFrames}f cuts=${s.cuts.join(",") || "-"}${s.insert ? " +insert" : ""} → ${s.transition}${s.image ? " [own still]" : ""}`);

@@ -26,7 +26,9 @@ async function prompts(shots: string[], style: string, palette: string[]) {
 /** Each scene beat's still (by beat id), with the prompt it was made from. A failed still falls back
  * to the kit's own scene. */
 export async function shotImages(beats: Beat[], style: string, palette: string[], folder: string): Promise<Record<string, { url: string; prompt: string }>> {
-  const wanted = beats.filter((b) => b.visual === "scene" && b.shot?.trim()).slice(0, 6);
+  // Scene beats first (their main picture), then the cut-aways of other beats.
+  const has = (b: Beat) => Boolean(b.shot?.trim()) && !["list", "logo", "clip"].includes(b.visual) && b.role !== "cta";
+  const wanted = [...beats.filter((b) => has(b) && b.visual === "scene"), ...beats.filter((b) => has(b) && b.visual !== "scene")].slice(0, 8);
   if (!wanted.length) return {};
   const list = await prompts(
     wanted.map((b) => b.shot.trim()),
