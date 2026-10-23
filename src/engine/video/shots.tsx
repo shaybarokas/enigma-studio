@@ -2,7 +2,7 @@
 // and a long beat cuts once inside itself, from a wide frame to a close one, the way an editor covers
 // a line with two angles. Titles sit in their zone over a scrim of the brand's ground; the captions'
 // zone below is left clear.
-import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Freeze, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { TemplateId } from "../catalog";
 import type { DesignProps } from "../design";
 import { fitLines } from "../fit";
@@ -184,7 +184,10 @@ export const CoverShot: React.FC<ShotProps> = (p) => {
           boxShadow: `0 60px 140px #000000${alpha(0.7)}`,
         }}
       >
-        <C {...coverDesign} />
+        {/* The graphic as finished (its own entrance would replay inside the card); the card moves. */}
+        <Freeze frame={89}>
+          <C {...coverDesign} />
+        </Freeze>
         <AbsoluteFill style={{ background: `linear-gradient(110deg, transparent ${sweep - 18}%, #ffffff${alpha(0.22)} ${sweep}%, transparent ${sweep + 18}%)` }} />
       </div>
       <CaptionBed />
@@ -271,6 +274,7 @@ export const ListShot: React.FC<ShotProps> = (p) => {
               style={{
                 display: "flex",
                 alignItems: "center",
+                alignSelf: "stretch",
                 gap: rowH * 0.22,
                 height: rowH * 0.82,
                 padding: `0 ${rowH * 0.24}px`,
