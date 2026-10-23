@@ -23,6 +23,16 @@ export const sceneSchema = z.object({
   sub: z.string().default(""),
   items: z.array(z.string()).default([]),
   image: z.string().optional(), // this beat's own still (scene beats)
+  motion: z.string().optional(), // the still brought to life as an AI video clip (scene beats the user chose)
+  clip: z
+    .object({
+      src: z.string(),
+      start: z.number(), // seconds into the clip
+      aspect: z.number(), // its width / height
+      audio: z.boolean(), // the lecturer's own words are heard (no narration over it)
+      rate: z.number().default(1), // playback speed, slowed a little when the line outlasts the span
+    })
+    .optional(), // footage from the course
   audio: z.string().optional(),
   lead: z.number().default(0), // frames of picture before the narration starts
   words: z.array(wordSchema).default([]), // seconds from the scene's start (lead included)

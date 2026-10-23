@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { structured } from "../ai/claude";
 import { generateScene } from "../agent/assets";
+import { createAdminClient } from "../supabase/admin";
 import type { Beat } from "./storyboard";
 
 const promptsSchema = z.object({
@@ -22,8 +23,9 @@ async function prompts(shots: string[], style: string, palette: string[]) {
   return shots.map((s, i) => out.prompts[i] ?? `${s}, ${style}`);
 }
 
-/** Image URL for each scene beat that has a shot (by beat id). A failed still falls back to the kit's own scene. */
-export async function shotImages(beats: Beat[], style: string, palette: string[], folder: string): Promise<Record<string, string>> {
+/** Each scene beat's still (by beat id), with the prompt it was made from. A failed still falls back
+ * to the kit's own scene. */
+export async function shotImages(beats: Beat[], style: string, palette: string[], folder: string): Promise<Record<string, { url: string; prompt: string }>> {
   const wanted = beats.filter((b) => b.visual === "scene" && b.shot?.trim()).slice(0, 6);
   if (!wanted.length) return {};
   const list = await prompts(
@@ -34,5 +36,36 @@ export async function shotImages(beats: Beat[], style: string, palette: string[]
   const urls = await Promise.all(
     wanted.map((b, i) => generateScene(list[i], "9:16", `${folder}/shot-${b.id}.jpg`).catch((e) => (console.error("[shot]", e), null))),
   );
-  return Object.fromEntries(wanted.flatMap((b, i) => (urls[i] ? [[b.id, urls[i]]] : [])));
+  return Object.fromEntries(wanted.flatMap((b, i) => (urls[i] ? [[b.id, { url: urls[i], prompt: list[i] }]] : [])));
+}
+
+/**
+ * A still brought to life: a 5-second AI video clip that starts from it (Kling image-to-video, in the
+ * still's own vertical frame). Kept in storage like every other asset; null if it fails (the beat
+ * then shows the still, and the credits are given back).
+ */
+export async function animateShot(image: string, prompt: string, path: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://fal.run/fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
+      method: "POST",
+      headers: { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image_url: image,
+        prompt: `${prompt}. Subtle, natural motion in the scene and a slow cinematic camera move; realistic, no text.`,
+        duration: "5",
+        negative_prompt: "blur, distortion, morphing, warped hands, extra fingers, text, watermark, low quality",
+      }),
+    });
+    if (!res.ok) throw new Error(`kling ${res.status}: ${await res.text()}`);
+    const { video } = (await res.json()) as { video: { url: string } };
+    const file = await fetch(video.url);
+    if (!file.ok) throw new Error(`download ${file.status}`);
+    const db = createAdminClient();
+    const { error } = await db.storage.from("kit-assets").upload(path, Buffer.from(await file.arrayBuffer()), { contentType: "video/mp4", upsert: true });
+    if (error) throw new Error(`storage: ${error.message}`);
+    return db.storage.from("kit-assets").getPublicUrl(path).data.publicUrl;
+  } catch (e) {
+    console.error("[motion]", e);
+    return null;
+  }
 }

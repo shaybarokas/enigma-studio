@@ -4,12 +4,14 @@ import sharp from "sharp";
 import type { DesignProps } from "@/engine/design";
 import { storeUpload } from "../agent/assets";
 import { FPS, videoDuration, type VideoProps } from "@/engine/video/schema";
-import { compose, speak, type VoiceKey, type Word } from "./audio";
-import { edit } from "./edit";
+import { compose, speak, type VoiceKey } from "./audio";
+import { wordsIn } from "./clips";
+import { edit, type Voiced } from "./edit";
 import { soundEffects } from "./sfx";
-import { shotImages } from "./shots";
+import { animateShot, shotImages } from "./shots";
 import { prepareSpeech } from "./speech";
 import type { Storyboard } from "./storyboard";
+import type { CourseClip } from "./storyboard-ui";
 
 export type Production = {
   videoId: string;
@@ -19,6 +21,7 @@ export type Production = {
   voice: VoiceKey;
   design: DesignProps;
   cover: string;
+  clips: CourseClip[]; // the kit's course footage, for clip beats
   style: string; // the kit's photographic look (its background prompt), for the beats' own stills
   cost: number; // credits to give back if the production fails
 };
@@ -57,41 +60,34 @@ export async function prepareVideo(
     process.env.SPEECH_NIQQUD === "1"
       ? await prepareSpeech(beats.map((b) => b.voice))
       : beats.map((b) => b.voice);
-  // The backdrops, the beats' stills and the sound effects are made while the voice records.
+  // The backdrops, the beats' stills (and the AI clips made from them) and the sound effects are
+  // made while the voice records.
+  const motionPath = (id: string) => `${folder}/motion-${id}.mp4`;
   const visuals = Promise.all([
     backdrops(opts.design, folder),
-    shotImages(
-      beats,
-      opts.style,
-      Object.values(opts.design.brand.palette),
-      folder,
-    ),
+    shotImages(beats, opts.style, Object.values(opts.design.brand.palette), folder).then(async (stills) => {
+      const moving = await Promise.all(
+        beats.map((b) => (b.visual === "scene" && b.motion && stills[b.id] ? animateShot(stills[b.id].url, stills[b.id].prompt, motionPath(b.id)) : null)),
+      );
+      return { images: Object.fromEntries(Object.entries(stills).map(([id, x]) => [id, x.url])), motion: Object.fromEntries(beats.flatMap((b, i) => (moving[i] ? [[b.id, moving[i]]] : []))) };
+    }),
     soundEffects(),
   ]);
   // One line at a time: ElevenLabs refuses parallel requests on a library voice it is still
-  // attaching to the account (409), and the lines are short.
-  const voiced: {
-    beat: (typeof beats)[number];
-    seconds: number;
-    words: Word[];
-    audio: string;
-  }[] = [];
+  // attaching to the account (409), and the lines are short. A clip that speaks for itself needs no voice.
+  const voiced: (Voiced & { audio?: string })[] = [];
   for (const [i, b] of beats.entries()) {
-    const v = await speak(
-      spoken[i],
-      b.voice,
-      opts.voice,
-      `${folder}/vo-${i}.mp3`,
-    );
-    voiced.push({ beat: b, seconds: v.seconds, words: v.words, audio: v.url });
+    const clip = b.visual === "clip" ? opts.clips.find((c) => c.id === b.clipId) : undefined;
+    if (clip && b.clipAudio) {
+      voiced.push({ beat: b, clip, seconds: b.clipEnd - b.clipStart, words: wordsIn(clip, b.clipStart, b.clipEnd) });
+      continue;
+    }
+    const v = await speak(spoken[i], b.voice, opts.voice, `${folder}/vo-${i}.mp3`);
+    voiced.push({ beat: b, clip, seconds: v.seconds, words: v.words, audio: v.url });
   }
-  const [blurred, images, sfx] = await visuals;
-  const scenes = edit(
-    opts.storyboard.kind,
-    voiced,
-    opts.storyboard.music,
-    images,
-  ).map((s, i) => ({ ...s, audio: voiced[i].audio }));
+  const [blurred, { images, motion }, sfx] = await visuals;
+  for (const v of voiced) v.motion = motion[v.beat.id];
+  const scenes = edit(opts.storyboard.kind, voiced, opts.storyboard.music, images).map((s, i) => ({ ...s, audio: voiced[i].audio }));
   const music = await compose(
     opts.storyboard.music,
     videoDuration(scenes) / FPS + 1,

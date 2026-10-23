@@ -1,3 +1,4 @@
+import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -41,7 +42,8 @@ export async function PATCH(
   if (d.video.status !== "draft")
     return NextResponse.json({ error: "הסרטון כבר הופק" }, { status: 409 });
   const { storyboard } = (await req.json()) as { storyboard?: unknown };
-  const clean = cleanStoryboard(storyboard, d.video.storyboard);
+  const { data: kit } = await createAdminClient().from("kits").select("clips").eq("id", id).single();
+  const clean = cleanStoryboard(storyboard, d.video.storyboard, (kit?.clips as CourseClip[] | null) ?? []);
   if (!clean || !(clean.voice in VOICES))
     return NextResponse.json({ error: "התסריט לא תקין" }, { status: 400 });
   const { data } = await createAdminClient()

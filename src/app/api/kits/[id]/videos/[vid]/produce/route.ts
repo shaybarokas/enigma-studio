@@ -5,7 +5,9 @@ import { getUserAndClient, type KitConcept } from "@/lib/kits";
 import { COST, kitFeatures } from "@/lib/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { produceVideo } from "@/lib/video/produce";
+import type { CourseClip } from "@/lib/video/storyboard-ui";
 import {
+  motionCount,
   speechIssues,
   VIDEO_FIELDS,
   type Storyboard,
@@ -34,7 +36,7 @@ export async function POST(
       .maybeSingle(),
     supabase
       .from("kits")
-      .select("design, concepts, chosen, unlocked")
+      .select("design, concepts, chosen, unlocked, clips")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -53,6 +55,9 @@ export async function POST(
   const plan = kitFeatures(account.plan, kit.unlocked);
   const db = createAdminClient();
   let cost = 0;
+  const motions = motionCount(storyboard);
+  if (motions && !plan.videos)
+    return NextResponse.json({ error: "קטעי וידאו AI כלולים במסלולים בתשלום.", code: "plan" }, { status: 402 });
   if (!plan.videos) {
     if (account.free_video_used || storyboard.kind !== "promo")
       return NextResponse.json(
@@ -68,12 +73,13 @@ export async function POST(
       .update({ free_video_used: true })
       .eq("user_id", user.id);
   } else {
-    if (!(await spend(user.id, COST.video, "video", id)))
+    // The video and its AI clips, in one charge (each failed clip is given back).
+    cost = COST.video + motions * COST.motion;
+    if (!(await spend(user.id, cost, "video", id)))
       return NextResponse.json(
         { error: NOT_ENOUGH, code: "credits" },
         { status: 402 },
       );
-    cost = COST.video;
   }
 
   const { data: row } = await db
@@ -93,6 +99,7 @@ export async function POST(
       cost,
       cover: (kit.concepts as KitConcept[])[kit.chosen].concept.templateId,
       style: (kit.concepts as KitConcept[])[kit.chosen].concept.backgroundPrompt,
+      clips: (kit.clips as CourseClip[] | null) ?? [],
     }),
   );
   return NextResponse.json({ video: row });

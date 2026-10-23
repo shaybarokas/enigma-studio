@@ -5,14 +5,17 @@
 import { FPS, TRANSITION_FRAMES, type Scene, type TransitionKind } from "@/engine/video/schema";
 import type { Word } from "./audio";
 import type { Beat, Storyboard } from "./storyboard";
+import type { CourseClip } from "./storyboard-ui";
 
-type Voiced = { beat: Beat; seconds: number; words: Word[] };
+/** A beat once recorded: its narration's length and words (or the clip's own, when the clip speaks),
+ * the course clip it shows and its AI video clip, if any. */
+export type Voiced = { beat: Beat; seconds: number; words: Word[]; clip?: CourseClip; motion?: string };
 
 // The least a picture needs on screen to land, by what it shows.
 function minSeconds(b: Beat) {
   if (b.role === "cta") return 4.2;
   if (b.visual === "list") return 1.4 + Math.max(3, b.items.length) * 0.75;
-  return { lecturer: 2.4, scene: 2.2, cover: 2.8, props: 2.6, logo: 2.6, list: 3.5 }[b.visual];
+  return { lecturer: 2.4, scene: 2.2, clip: 2.2, cover: 2.8, props: 2.6, logo: 2.6, list: 3.5 }[b.visual];
 }
 
 /** Tempo from the music prompt ("… 100 bpm …"); the cut grid follows it. */
@@ -36,7 +39,8 @@ function transitionInto(kind: Storyboard["kind"], cur: Beat, next: Beat, seenLec
 // A cut inside the beat at the word boundary nearest its middle, when the beat is long enough for
 // two shots (wide, then close) and the picture can be reframed.
 function innerCut(v: Voiced, lead: number): number | undefined {
-  if (!["lecturer", "scene", "cover", "props"].includes(v.beat.visual) || v.seconds < 3.2) return undefined;
+  // Footage and AI video already move: they are not reframed.
+  if (v.motion || !["lecturer", "scene", "cover", "props"].includes(v.beat.visual) || v.seconds < 3.2) return undefined;
   const mid = v.seconds / 2;
   const candidates = v.words.slice(1).filter((w) => w.start > 1.2 && v.seconds - w.start > 1.2);
   if (!candidates.length) return undefined;
@@ -58,7 +62,9 @@ export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: st
     return next ? transitionInto(kind, v.beat, next.beat, seenLecturer, i) : "cut";
   });
   return voiced.map((v, i) => {
-    const lead = i === 0 ? 8 : 4 + (i > 0 ? TRANSITION_FRAMES[transitions[i - 1]] / 2 : 0);
+    // A clip that speaks starts with its own sound: picture and words together, no lead.
+    const speaks = v.beat.visual === "clip" && v.beat.clipAudio && Boolean(v.clip);
+    const lead = speaks ? 0 : i === 0 ? 8 : 4 + (i > 0 ? TRANSITION_FRAMES[transitions[i - 1]] / 2 : 0);
     const out = TRANSITION_FRAMES[transitions[i]];
     const tail = Math.round(FPS * (v.beat.role === "cta" ? 1.4 : 0.3));
     const needed = Math.max(Math.round(minSeconds(v.beat) * FPS), lead + Math.ceil(v.seconds * FPS) + tail) + out;
@@ -72,6 +78,18 @@ export function edit(kind: Storyboard["kind"], voiced: Voiced[], musicPrompt: st
       sub: v.beat.sub,
       items: v.beat.items.filter(Boolean),
       image: images[v.beat.id],
+      motion: v.motion,
+      clip: v.clip
+        ? {
+            src: v.clip.url,
+            start: v.beat.clipStart,
+            aspect: v.clip.aspect,
+            audio: speaks,
+            // Narration longer than the chosen span: the footage slows a little (never below 0.6×)
+            // rather than running past its moment.
+            rate: speaks ? 1 : Math.min(1, Math.max(0.6, (v.beat.clipEnd - v.beat.clipStart) / (durationInFrames / FPS))),
+          }
+        : undefined,
       // Word times move with the lead, so the captions stay on the voice.
       words: v.words.map((w) => ({ ...w, start: w.start + lead / FPS, end: w.end + lead / FPS })),
       lead: Math.round(lead),

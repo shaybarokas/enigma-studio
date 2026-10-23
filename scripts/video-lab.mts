@@ -18,8 +18,8 @@ let userId: string;
 let storyboard: Storyboard;
 if (source.startsWith("kit:")) {
   const [, id, kind] = source.split(":");
-  const { data: k } = await db.from("kits").select("user_id, brief, design, media").eq("id", id).single();
-  storyboard = await writeStoryboard(kind as Storyboard["kind"], "or", k!.brief as Brief, k!.design as DesignProps, (k!.media as Media[]) ?? []);
+  const { data: k } = await db.from("kits").select("user_id, brief, design, media, clips").eq("id", id).single();
+  storyboard = await writeStoryboard(kind as Storyboard["kind"], "or", { brief: k!.brief as Brief, design: k!.design as DesignProps, media: (k!.media as Media[]) ?? [], clips: k!.clips ?? [] });
   writeFileSync(out.replace(/\.json$/, "-storyboard.json"), JSON.stringify(storyboard, null, 2));
   console.log(`storyboard: ~${estimateSeconds(storyboard)}s, ${storyboard.beats.length} beats`);
   for (const b of storyboard.beats) console.log(`  [${b.role}/${b.visual}] ${b.voice}${b.shot ? `  🎥 ${b.shot}` : ""}`);
@@ -28,7 +28,7 @@ if (source.startsWith("kit:")) {
   const { data: video } = await db.from("videos").select("kit_id, user_id, storyboard").eq("id", source).single();
   [kitId, userId, storyboard] = [video!.kit_id, video!.user_id, video!.storyboard as Storyboard];
 }
-const { data: kit } = await db.from("kits").select("design, concepts, chosen").eq("id", kitId).single();
+const { data: kit } = await db.from("kits").select("design, concepts, chosen, clips").eq("id", kitId).single();
 const concept = (kit!.concepts as KitConcept[])[kit!.chosen].concept;
 const t = Date.now();
 const spec = await prepareVideo({
@@ -40,6 +40,7 @@ const spec = await prepareVideo({
   design: kit!.design as DesignProps,
   cover: concept.templateId,
   style: concept.backgroundPrompt,
+  clips: kit!.clips ?? [],
 });
 writeFileSync(out, JSON.stringify(spec));
 console.log(`${out}: ${spec.scenes.length} scenes, ${Math.round((Date.now() - t) / 1000)}s`);

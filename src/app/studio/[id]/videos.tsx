@@ -4,7 +4,9 @@
 // the production move through its steps.
 import { useEffect, useState } from "react";
 import { LENGTH } from "@/lib/video/storyboard-ui";
+import { CourseClips } from "./clips";
 import { StoryboardEditor, type Video } from "./storyboard";
+import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
 import { paywalled, refreshAccount, useAccount } from "@/components/account";
 import { COST, kitFeatures } from "@/lib/plans";
@@ -38,6 +40,13 @@ export function Videos({
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [clips, setClips] = useState<CourseClip[]>([]);
+  useEffect(() => {
+    fetch(`/api/kits/${kitId}/clips`)
+      .then((r) => (r.ok ? r.json() : { clips: [] }))
+      .then((d) => setClips(d.clips))
+      .catch(() => {});
+  }, [kitId]);
 
   const account = useAccount();
   const paid = account ? kitFeatures(account.plan, unlocked).videos : false;
@@ -105,7 +114,7 @@ export function Videos({
         <h2 className="text-xl font-black">סרטונים</h2>
         <p className="text-sm text-muted">
           בגודל סטורי, עם קריינות בעברית, כתוביות ומוזיקה מקורית. קודם הסוכן
-          כותב תסריט שאתם עורכים ומאשרים, ורק אז הסרטון מופק (כ־3 דקות).
+          כותב תסריט שאתם עורכים ומאשרים, ורק אז הסרטון מופק (כ־5 דקות).
         </p>
         {account && (
           <p className="mt-1 text-sm font-semibold text-brand">
@@ -117,6 +126,8 @@ export function Videos({
           </p>
         )}
       </div>
+
+      <CourseClips kitId={kitId} clips={clips} onChange={setClips} />
 
       <div className="space-y-3 rounded-3xl border border-border bg-surface p-5">
         <p className="text-sm font-bold">הקול של הסרטון</p>
@@ -182,6 +193,7 @@ export function Videos({
           kitId={kitId}
           video={editing}
           paid={paid}
+          clips={clips}
           onChange={replace}
           onRemoved={() =>
             setVideos((vs) => vs?.filter((v) => v.id !== editing.id) ?? null)

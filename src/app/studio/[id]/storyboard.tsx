@@ -20,6 +20,7 @@ import {
   estimateSeconds,
   type BeatRole,
   type CaptionStyle,
+  type CourseClip,
   type Visual,
 } from "@/lib/video/storyboard-ui";
 import { VOICES, VOICE_KEYS } from "@/lib/video/voices";
@@ -33,6 +34,11 @@ export type Beat = {
   items: string[];
   visual: Visual;
   shot?: string;
+  clipId?: string;
+  clipStart?: number;
+  clipEnd?: number;
+  clipAudio?: boolean;
+  motion?: boolean;
   emphasis: string[];
 };
 export type Storyboard = {
@@ -63,12 +69,14 @@ export function StoryboardEditor({
   kitId,
   video,
   paid,
+  clips,
   onChange,
   onRemoved,
 }: {
   kitId: string;
   video: Video;
   paid: boolean;
+  clips: CourseClip[];
   onChange: (v: Video) => void;
   onRemoved: () => void;
 }) {
@@ -148,6 +156,12 @@ export function StoryboardEditor({
           sub: "",
           items: [],
           visual: "scene",
+          shot: "",
+          clipId: "",
+          clipStart: 0,
+          clipEnd: 0,
+          clipAudio: false,
+          motion: false,
           emphasis: [],
         },
       ],
@@ -222,7 +236,26 @@ export function StoryboardEditor({
   const musicValue = MUSIC_PRESETS.some((p) => p.prompt === sb.music)
     ? sb.music
     : "agent";
-  const empty = sb.beats.some((b) => !b.voice.trim());
+  const speaks = (b: Beat) => b.visual === "clip" && Boolean(b.clipAudio);
+  const empty = sb.beats.some((b) => !b.voice.trim() && !speaks(b));
+  const ready = clips.filter((c) => c.status === "ready");
+  const motions = sb.beats.filter(
+    (b) => b.visual === "scene" && b.motion,
+  ).length;
+  const cost = COST.video + motions * COST.motion;
+  // Choosing "a clip from the course" starts on the first clip's best moment.
+  const toVisual = (b: Beat, visual: Visual) => {
+    if (visual !== "clip" || b.clipId) return setBeat(b.id, { visual });
+    const c = ready[0];
+    const h = c?.highlights?.find((x) => !x.quote) ?? c?.highlights?.[0];
+    setBeat(b.id, {
+      visual,
+      clipId: c?.id ?? "",
+      clipStart: h?.start ?? 0,
+      clipEnd: h?.end ?? Math.min(4, c?.seconds ?? 4),
+      clipAudio: false,
+    });
+  };
 
   return (
     <div className="space-y-4 rounded-3xl border border-brand/40 bg-surface p-5">
@@ -366,9 +399,7 @@ export function StoryboardEditor({
                     aria-label="מה רואים"
                     className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
                     value={b.visual}
-                    onChange={(e) =>
-                      setBeat(b.id, { visual: e.target.value as Visual })
-                    }
+                    onChange={(e) => toVisual(b, e.target.value as Visual)}
                   >
                     {VISUALS.map((v) => (
                       <option key={v} value={v}>
@@ -406,7 +437,14 @@ export function StoryboardEditor({
                     </button>
                   </span>
                 </div>
-                <label className="block space-y-1">
+                {b.visual === "clip" && (
+                  <ClipPicker
+                    beat={b}
+                    clips={ready}
+                    onChange={(patch) => setBeat(b.id, patch)}
+                  />
+                )}
+                <label className={speaks(b) ? "hidden" : "block space-y-1"}>
                   <span className="text-xs font-bold text-muted">
                     🎙 קריינות
                   </span>
@@ -461,6 +499,25 @@ export function StoryboardEditor({
                       onChange={(e) => setBeat(b.id, { shot: e.target.value })}
                       placeholder="למשל: ידיים מקפלות בצק על משטח עץ, אור חלון רך"
                     />
+                  </label>
+                )}
+                {b.visual === "scene" && (
+                  <label
+                    className={`flex items-center gap-2 text-xs ${paid ? "" : "opacity-60"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(b.motion)}
+                      disabled={!paid}
+                      onChange={(e) =>
+                        setBeat(b.id, { motion: e.target.checked })
+                      }
+                    />
+                    <span>
+                      🎬 להפוך את התמונה לקטע וידאו AI בתנועה (+{COST.motion}{" "}
+                      קרדיטים)
+                      {!paid && " · במסלולים בתשלום"}
+                    </span>
                   </label>
                 )}
                 {b.visual === "list" && (
@@ -546,7 +603,7 @@ export function StoryboardEditor({
         >
           {busy === "produce"
             ? "מתחיל הפקה…"
-            : `🎬 אישור והפקה · ${paid ? `${COST.video} קרדיטים` : "סרטון לדוגמה"}`}
+            : `🎬 אישור והפקה · ${paid ? `${cost} קרדיטים` : "סרטון לדוגמה"}`}
         </button>
         <button
           onClick={discard}
@@ -559,6 +616,149 @@ export function StoryboardEditor({
       {empty && (
         <p className="text-xs text-amber-600">
           יש קטע בלי קריינות. כתבו בו משהו או מחקו אותו.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const clock = (s: number) =>
+  `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
+
+/** Which course clip a beat cuts to, and which moment of it: the agent's marked moments, or exact
+ * times, with a preview that plays just that span. */
+function ClipPicker({
+  beat,
+  clips,
+  onChange,
+}: {
+  beat: Beat;
+  clips: CourseClip[];
+  onChange: (patch: Partial<Beat>) => void;
+}) {
+  const preview = useRef<HTMLVideoElement>(null);
+  const clip = clips.find((c) => c.id === beat.clipId);
+  if (!clips.length)
+    return (
+      <p className="rounded-xl bg-amber-500/10 p-2 text-xs text-amber-700">
+        עוד אין קטעים מהקורס. העלו קטעים בתיבה ״קטעים מהקורס״ למעלה, ואז בחרו
+        אותם כאן.
+      </p>
+    );
+  const start = beat.clipStart ?? 0;
+  const end = beat.clipEnd ?? 0;
+  const said = clip?.words
+    ?.filter((w) => w.start >= start - 0.05 && w.end <= end + 0.05)
+    .map((w) => w.text)
+    .join(" ");
+  const play = () => {
+    const v = preview.current;
+    if (!v) return;
+    v.currentTime = start;
+    v.muted = false;
+    void v.play();
+  };
+  return (
+    <div className="space-y-2 rounded-xl border border-border p-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          aria-label="איזה קטע"
+          className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+          value={beat.clipId ?? ""}
+          onChange={(e) => {
+            const c = clips.find((x) => x.id === e.target.value);
+            const h = c?.highlights?.[0];
+            onChange({
+              clipId: e.target.value,
+              clipStart: h?.start ?? 0,
+              clipEnd: h?.end ?? Math.min(4, c?.seconds ?? 4),
+              clipAudio: Boolean(h?.quote),
+            });
+          }}
+        >
+          {clips.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1 text-xs">
+          מ־
+          <input
+            type="number"
+            step={0.1}
+            min={0}
+            className="w-16 rounded-lg border border-border bg-surface px-1 py-0.5"
+            value={start}
+            onChange={(e) => onChange({ clipStart: Number(e.target.value) })}
+          />
+        </label>
+        <label className="flex items-center gap-1 text-xs">
+          עד
+          <input
+            type="number"
+            step={0.1}
+            min={0}
+            className="w-16 rounded-lg border border-border bg-surface px-1 py-0.5"
+            value={end}
+            onChange={(e) => onChange({ clipEnd: Number(e.target.value) })}
+          />
+        </label>
+        <span className="text-xs text-muted">
+          ({Math.max(0, end - start).toFixed(1)} שנ׳)
+        </span>
+        <button
+          type="button"
+          onClick={play}
+          className="rounded-lg border border-border px-2 py-0.5 text-xs hover:border-brand"
+        >
+          ▶ צפייה
+        </button>
+      </div>
+      {clip?.highlights && clip.highlights.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {clip.highlights.map((h, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() =>
+                onChange({
+                  clipStart: h.start,
+                  clipEnd: h.end,
+                  clipAudio: h.quote,
+                })
+              }
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${Math.abs(h.start - start) < 0.05 && Math.abs(h.end - end) < 0.05 ? "bg-brand text-white" : "bg-brand/10 text-brand"}`}
+            >
+              {h.quote ? "💬 " : ""}
+              {h.label} · {clock(h.start)}
+            </button>
+          ))}
+        </div>
+      )}
+      {clip && (
+        <video
+          ref={preview}
+          src={clip.url}
+          preload="metadata"
+          playsInline
+          className="aspect-video w-full max-w-xs rounded-lg bg-black object-contain"
+          onTimeUpdate={(e) => {
+            if (e.currentTarget.currentTime >= end) e.currentTarget.pause();
+          }}
+        />
+      )}
+      <label className="flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={Boolean(beat.clipAudio)}
+          onChange={(e) => onChange({ clipAudio: e.target.checked })}
+        />
+        💬 להשמיע את המרצה מהקטע (בלי קריינות ברגע הזה)
+      </label>
+      {beat.clipAudio && said && (
+        <p className="rounded-lg bg-background p-2 text-xs leading-relaxed">
+          ״{said}״
         </p>
       )}
     </div>

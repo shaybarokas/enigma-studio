@@ -1,3 +1,4 @@
+import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { NextResponse } from "next/server";
 import type { DesignProps } from "@/engine/design";
 import type { Brief } from "@/lib/agent/brief";
@@ -33,7 +34,7 @@ export async function POST(
       .maybeSingle(),
     supabase
       .from("kits")
-      .select("brief, design, media")
+      .select("brief, design, media, clips")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -45,9 +46,12 @@ export async function POST(
     const storyboard = await reviseStoryboard(
       video.storyboard as Storyboard,
       instruction.trim().slice(0, 1000),
-      kit.brief as Brief | null,
-      kit.design as DesignProps,
-      (kit.media as Media[] | null) ?? [],
+      {
+        brief: kit.brief as Brief | null,
+        design: kit.design as DesignProps,
+        media: (kit.media as Media[] | null) ?? [],
+        clips: (kit.clips as CourseClip[] | null) ?? [],
+      },
     );
     const { data } = await createAdminClient()
       .from("videos")

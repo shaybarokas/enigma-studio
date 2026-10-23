@@ -3,6 +3,7 @@
 import { renderMediaOnVercel } from "@remotion/vercel";
 import { alertOwner } from "../alert";
 import { refund } from "../credits";
+import { COST } from "../plans";
 import { renderSandbox } from "../render/sandbox";
 import { createAdminClient } from "../supabase/admin";
 import { prepareVideo, type Production } from "./prepare";
@@ -15,6 +16,12 @@ export async function produceVideo(opts: Production) {
 
   try {
     const spec = await prepareVideo(opts, (status) => set({ status }));
+    // AI clips that couldn't be made play as their stills; their credits go back now.
+    const missing = opts.storyboard.beats.filter((b) => b.visual === "scene" && b.motion).length - spec.scenes.filter((x) => x.motion).length;
+    if (missing > 0 && opts.cost) {
+      await refund(opts.userId, missing * COST.motion, opts.videoId);
+      opts = { ...opts, cost: opts.cost - missing * COST.motion };
+    }
     await set({ status: "rendering", spec });
 
     const sandbox = await renderSandbox();

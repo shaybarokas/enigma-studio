@@ -1,3 +1,4 @@
+import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { NextResponse } from "next/server";
 import type { DesignProps } from "@/engine/design";
 import type { Brief } from "@/lib/agent/brief";
@@ -48,7 +49,7 @@ export async function POST(
     return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { data: kit } = await supabase
     .from("kits")
-    .select("brief, design, chosen, unlocked, media")
+    .select("brief, design, chosen, unlocked, media, clips")
     .eq("id", id)
     .maybeSingle();
   if (!kit?.design || kit.chosen == null)
@@ -81,9 +82,12 @@ export async function POST(
     const storyboard = await writeStoryboard(
       kind,
       v,
-      kit.brief as Brief | null,
-      kit.design as DesignProps,
-      (kit.media as Media[] | null) ?? [],
+      {
+        brief: kit.brief as Brief | null,
+        design: kit.design as DesignProps,
+        media: (kit.media as Media[] | null) ?? [],
+        clips: (kit.clips as CourseClip[] | null) ?? [],
+      },
     );
     const { data: row, error } = await createAdminClient()
       .from("videos")

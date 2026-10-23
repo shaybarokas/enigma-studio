@@ -16,11 +16,12 @@ export const ROLE_LABELS: Record<BeatRole, string> = {
   cta: "הנעה לפעולה",
 };
 
-export const VISUALS = ["lecturer", "scene", "cover", "props", "list", "logo"] as const;
+export const VISUALS = ["lecturer", "scene", "clip", "cover", "props", "list", "logo"] as const;
 export type Visual = (typeof VISUALS)[number];
 export const VISUAL_LABELS: Record<Visual, string> = {
   lecturer: "המרצה",
   scene: "הסצנה מעולם התוכן",
+  clip: "קטע מהקורס",
   cover: "גרפיקת התצוגה",
   props: "האביזרים",
   list: "רשימה על המסך",
@@ -49,5 +50,22 @@ export const LENGTH: Record<"promo" | "marketing", [number, number]> = { promo: 
 // cuts on the music's grid).
 export const WORDS_PER_SECOND = 1.8;
 export const BEAT_PADDING = 0.7;
-export const beatSeconds = (b: { voice: string }) => b.voice.trim().split(/\s+/).filter(Boolean).length / WORDS_PER_SECOND + BEAT_PADDING;
-export const estimateSeconds = (sb: { beats: { voice: string }[] }) => Math.round(sb.beats.reduce((a, b) => a + beatSeconds(b), 0));
+type Timed = { voice: string; visual?: string; clipAudio?: boolean; clipStart?: number; clipEnd?: number };
+/** A beat's length: its narration, or the clip itself when the clip speaks (the lecturer's own words). */
+export const beatSeconds = (b: Timed) =>
+  b.visual === "clip" && b.clipAudio ? Math.max(1, (b.clipEnd ?? 0) - (b.clipStart ?? 0)) + 0.4 : b.voice.trim().split(/\s+/).filter(Boolean).length / WORDS_PER_SECOND + BEAT_PADDING;
+export const estimateSeconds = (sb: { beats: Timed[] }) => Math.round(sb.beats.reduce((a, b) => a + beatSeconds(b), 0));
+
+/** A clip of the course the user uploaded, as the studio and the director see it. */
+export type CourseClip = {
+  id: string;
+  url: string;
+  name: string;
+  seconds: number;
+  aspect: number; // width / height
+  thumbs: { t: number; url: string }[];
+  status: "analyzing" | "ready" | "failed";
+  summary?: string; // what the clip shows, Hebrew
+  words?: { text: string; start: number; end: number }[]; // what is said in it
+  highlights?: { start: number; end: number; label: string; quote: boolean }[]; // the moments worth cutting in
+};
