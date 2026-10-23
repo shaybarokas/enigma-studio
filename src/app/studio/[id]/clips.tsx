@@ -101,7 +101,7 @@ export function CourseClips({
               key={c.id}
               className="flex gap-3 rounded-2xl border border-border bg-background p-2"
             >
-              <div className="flex h-16 w-28 shrink-0 overflow-hidden rounded-xl bg-black">
+              <div className="flex h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-black sm:h-16 sm:w-28">
                 {c.thumbs[Math.floor(c.thumbs.length / 2)] && (
                   <div
                     role="img"
@@ -142,7 +142,7 @@ export function CourseClips({
                       {c.highlights?.map((h, i) => (
                         <span
                           key={i}
-                          className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand"
+                          className="whitespace-nowrap rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand"
                         >
                           {h.quote ? "💬 " : ""}
                           {h.label} · {time(h.start)}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LIOR, WA_TEXT, WhatsAppFloat, WhatsAppLink } from "@/components/whatsapp";
+import { MobileMenu } from "@/components/nav-menu";
 import { SITE } from "@/lib/site";
 
 const NAV = [
@@ -19,7 +20,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       </a>
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0b0b14]/80 text-white backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
-          <Link href="/" className="text-xl font-black" dir="ltr">
+          <Link href="/" className="whitespace-nowrap text-xl font-black" dir="ltr">
             Enigma <span className="text-[#a78bfa]">Studio</span>
           </Link>
           <nav aria-label="ניווט ראשי" className="hidden items-center gap-1 md:flex">
@@ -30,12 +31,15 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="rounded-full px-3 py-2 text-sm font-semibold text-white/80 hover:text-white">
+            <Link href="/login" className="hidden rounded-full px-3 py-2 text-sm font-semibold text-white/80 hover:text-white sm:inline-block">
               כניסה
             </Link>
-            <Link href="/signup" className="rounded-full bg-[#7c3aed] px-4 py-2 text-sm font-bold text-white shadow-lg shadow-[#7c3aed]/40 transition hover:bg-[#6d28d9]">
+            <Link href="/signup" className="whitespace-nowrap rounded-full bg-[#7c3aed] px-4 py-2 text-sm font-bold text-white shadow-lg shadow-[#7c3aed]/40 transition hover:bg-[#6d28d9]">
               מתחילים בחינם
             </Link>
+            <div className="md:hidden">
+              <MobileMenu tone="dark" top="top-16" items={[...NAV.map(([href, label]) => ({ href: `/${href}`, label })), { href: "/login", label: "כניסה לחשבון" }]} />
+            </div>
           </div>
         </div>
       </header>

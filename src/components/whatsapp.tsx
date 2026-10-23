@@ -15,7 +15,7 @@ export const WA_TEXT = {
 
 export const waHref = (text: string) => `https://wa.me/${LIOR.phone}?text=${encodeURIComponent(text)}`;
 
-const LABEL = "שיחה בוואטסאפ עם ליאור, נפתח בחלון חדש";
+export const WA_LABEL = "שיחה בוואטסאפ עם ליאור, נפתח בחלון חדש";
 
 export const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = "size-5" }) => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className} fill="currentColor">
@@ -26,7 +26,7 @@ export const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = "si
 /** A link to WhatsApp with Lior (new tab), styled per place. */
 export function WhatsAppLink({ text, className, children }: { text: string; className?: string; children?: React.ReactNode }) {
   return (
-    <a href={waHref(text)} target="_blank" rel="noopener" aria-label={LABEL} className={className}>
+    <a href={waHref(text)} target="_blank" rel="noopener" aria-label={WA_LABEL} className={className}>
       {children}
     </a>
   );

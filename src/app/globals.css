@@ -100,3 +100,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* iPhone zooms the page into any field whose text is under 16px when it is tapped: on phones, fields
+   are 16px, so typing never jolts the layout. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
