@@ -5,15 +5,30 @@
 // Escape and on a tap outside; the page doesn't scroll behind it.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { Suspense, useEffect, useId, useRef, useState } from "react";
 
 export type NavItem = { href: string; label: string; external?: boolean; icon?: React.ReactNode; ariaLabel?: string };
 
-export function MobileMenu({ items, footer, tone = "light", top = "top-14" }: { items: NavItem[]; footer?: React.ReactNode; tone?: "light" | "dark"; top?: string }) {
+type MenuProps = { items: NavItem[]; footer?: React.ReactNode; tone?: "light" | "dark"; top?: string };
+
+// The current page is read from the URL, which a prerendered page only knows in the browser: the
+// menu renders without the highlight first, then with it.
+export function MobileMenu(props: MenuProps) {
+  return (
+    <Suspense fallback={<Menu {...props} pathname="" />}>
+      <MenuHere {...props} />
+    </Suspense>
+  );
+}
+
+function MenuHere(props: MenuProps) {
+  return <Menu {...props} pathname={usePathname()} />;
+}
+
+function Menu({ items, footer, tone = "light", top = "top-14", pathname }: MenuProps & { pathname: string }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!open) return;
@@ -84,9 +99,22 @@ export function MobileMenu({ items, footer, tone = "light", top = "top-14" }: { 
   );
 }
 
+type LinkProps = { href: string; children: React.ReactNode; className?: string };
+
 /** A header link that marks itself as the current page. */
-export function NavLink({ href, children, className = "" }: { href: string; children: React.ReactNode; className?: string }) {
-  const pathname = usePathname();
+export function NavLink(props: LinkProps) {
+  return (
+    <Suspense fallback={<Plain {...props} pathname="" />}>
+      <LinkHere {...props} />
+    </Suspense>
+  );
+}
+
+function LinkHere(props: LinkProps) {
+  return <Plain {...props} pathname={usePathname()} />;
+}
+
+function Plain({ href, children, className = "", pathname }: LinkProps & { pathname: string }) {
   const active = pathname === href || (href !== "/studio" && pathname.startsWith(href));
   return (
     <Link
