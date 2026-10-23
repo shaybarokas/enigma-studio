@@ -7,3 +7,5 @@ export const MAX_THUMBS = 40;
 export const thumbCount = (seconds: number) => Math.min(MAX_THUMBS, Math.max(3, Math.round(seconds / 30)));
 export const MAX_CLIPS = 8;
 export const clipFolder = (userId: string, kitId: string, clipId: string) => `${userId}/${kitId}/clips/${clipId}`;
+/** Course clips are kept this many days after the kit was last used (edited or made a video). */
+export const CLIP_DAYS = 60;

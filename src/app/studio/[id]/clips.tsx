@@ -4,7 +4,7 @@
 // agent watches each one and marks its strong moments, and the storyboard can cut them in.
 import { useRef, useState } from "react";
 import { importClip, uploadClip } from "@/lib/upload-clips";
-import { MAX_CLIP_MB, MAX_CLIPS } from "@/lib/video/clip-files";
+import { CLIP_DAYS, MAX_CLIP_MB, MAX_CLIPS } from "@/lib/video/clip-files";
 import type { CourseClip } from "@/lib/video/storyboard-ui";
 
 const time = (s: number) =>
@@ -89,7 +89,8 @@ export function CourseClips({
         <p className="text-sm text-muted">
           העלו שיעורים מוקלטים או קטעים מהם, והסוכן יצפה בהם, יסמן את הרגעים
           החזקים וישלב אותם בסרטון (גם ציטוטים של המרצה בקול שלו). שיעור שלם עד{" "}
-          {MAX_CLIP_MB / 1024}GB, MP4 או MOV. ההעלאה ממשיכה מאיפה שנעצרה אם החיבור נופל.
+          {MAX_CLIP_MB / 1024}GB, MP4 או MOV. ההעלאה ממשיכה מאיפה שנעצרה אם החיבור נופל. הקטעים
+          נשמרים {CLIP_DAYS} יום מהשימוש האחרון בערכה (הסרטונים שהופקו נשמרים תמיד).
         </p>
       </div>
 
