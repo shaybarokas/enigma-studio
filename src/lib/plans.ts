@@ -24,11 +24,11 @@ export const discounted = (price: number, percent: number) => Math.round((price 
 
 /** What things cost, in credits. Downloads are free. */
 export const COST = {
-  concepts: 10, // three directions, with their AI scenes and props
+  concepts: 12, // three directions, with their AI scenes and props
   edit: 1, // a change through the chat
   editWithScene: 4, // a change that paints a new background
   video: 20, // a narrated, scored, rendered video of 35–60 seconds
-  motion: 4, // a scene of the video brought to life as an AI video clip (on top of the video)
+  motion: 7, // a scene of the video brought to life as an AI video clip (on top of the video)
   videoEdit: 4, // a new version of a finished video from the video editor (re-render, changed lines re-recorded)
 } as const;
 

@@ -319,7 +319,7 @@ function Concepts({ kit, onChoose, onRegenerate }: { kit: Kit; onChoose: (i: num
       </ul>
       <div className="text-center">
         <button onClick={onRegenerate} className="text-sm font-semibold text-muted underline-offset-4 hover:text-brand hover:underline">
-          אף כיוון לא מדויק? יצירת שלושה חדשים
+          אף כיוון לא מדויק? יצירת שלושה חדשים · {COST.concepts} קרדיטים
         </button>
       </div>
       {live !== null && (
