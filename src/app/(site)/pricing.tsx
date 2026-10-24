@@ -67,7 +67,8 @@ export function Pricing() {
           <ul className="mt-2 space-y-1 text-muted">
             <li>שלושה כיוונים עיצוביים, עם תמונות שנוצרות במיוחד: {COST.concepts} קרדיטים</li>
             <li>שינוי בשיחה עם הסוכן: {COST.edit} קרדיט ({COST.editWithScene} עם רקע חדש)</li>
-            <li>סרטון עם קריינות, כתוביות ומוזיקה: {COST.video} קרדיטים</li>
+            <li>סרטון עם קריינות, כתוביות ומוזיקה: {COST.video} קרדיטים (+{COST.motion} לכל קטע וידאו AI)</li>
+            <li>גרסה ערוכה של סרטון מוכן: {COST.videoEdit} קרדיטים</li>
             <li>עריכה ידנית בעורך והורדות: בלי הגבלה, בלי קרדיטים</li>
           </ul>
         </div>

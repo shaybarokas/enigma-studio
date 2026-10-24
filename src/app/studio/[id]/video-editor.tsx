@@ -161,23 +161,28 @@ export function VideoEditor({
             disabled={!dirty || busy !== null}
             className="rounded-full bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-strong disabled:opacity-50"
           >
-            {busy === "save"
-              ? "מתחיל…"
-              : `שמירה כגרסה חדשה · ${COST.videoEdit} קרדיטים`}
+            {busy === "save" ? (
+              "מתחיל…"
+            ) : (
+              <>
+                שמירה<span className="hidden sm:inline"> כגרסה חדשה</span> · {COST.videoEdit} קרדיטים
+              </>
+            )}
           </button>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+      {/* On a phone the preview stays on top while the controls scroll under it, so every change is seen. */}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* The preview */}
-        <div className="shrink-0 bg-black/90 p-3 md:flex md:w-[38%] md:items-center md:justify-center md:p-6">
-          <div className="mx-auto w-full max-w-[260px] md:max-w-[340px]">
+        <div className="shrink-0 bg-black/90 p-2 md:flex md:w-[38%] md:items-center md:justify-center md:p-6">
+          <div className="mx-auto w-full max-w-[calc(40dvh*9/16)] md:max-w-[340px]">
             <Preview ref={player} spec={spec} />
           </div>
         </div>
 
         {/* The controls */}
-        <div className="min-h-0 flex-1 space-y-4 p-4 md:overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {/* Scenes */}
           <div
             className="flex gap-2 overflow-x-auto pb-1"
@@ -428,6 +433,7 @@ export function VideoEditor({
                 value={ask}
                 onChange={(e) => setAsk(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && askAgent()}
+                aria-label="מה לשנות בסרטון"
                 placeholder="למשל: בשנייה 12 תתקן ל״מחמצת״, תוריד את האנימציה בקטע 3, תדגיש את המחיר"
                 disabled={busy !== null}
               />

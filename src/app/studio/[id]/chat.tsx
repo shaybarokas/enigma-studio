@@ -38,6 +38,14 @@ export function Chat({
   const end = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const firstScroll = useRef(true);
+  // The message box grows with what's typed (up to its max height), and shrinks back once sent.
+  const box = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const t = box.current;
+    if (!t) return;
+    t.style.height = "auto";
+    t.style.height = `${t.scrollHeight + 2}px`;
+  }, [draft]);
   useEffect(() => {
     // Jump to the latest message on open, glide on new ones.
     end.current?.scrollIntoView({ behavior: firstScroll.current ? "instant" : "smooth", block: "end" });
@@ -170,6 +178,7 @@ export function Chat({
           {uploading ? "…" : "📷"}
         </button>
         <textarea
+          ref={box}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onPaste={(e) => {
@@ -186,7 +195,7 @@ export function Chat({
             }
           }}
           rows={1}
-          placeholder={pending.length ? "אפשר להוסיף מילה על התמונות…" : "כתבו לסוכן, הדביקו קישור או צרפו תמונות…"}
+          placeholder={pending.length ? "אפשר להוסיף מילה על התמונות…" : "כתבו לסוכן או הדביקו קישור…"}
           aria-label="הודעה לסוכן"
           className="max-h-40 min-h-11 flex-1 resize-none rounded-2xl border border-border bg-surface px-4 py-2.5 text-[15px] outline-none transition focus:border-brand"
         />

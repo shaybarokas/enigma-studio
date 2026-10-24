@@ -120,7 +120,8 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
           <ul className="mt-1 space-y-0.5">
             <li>3 כיוונים עיצוביים: {COST.concepts} קרדיטים</li>
             <li>שינוי בצ׳אט: {COST.edit} קרדיט, עם רקע חדש: {COST.editWithScene}</li>
-            <li>סרטון עם קריינות: {COST.video} קרדיטים</li>
+            <li>סרטון עם קריינות: {COST.video} קרדיטים (+{COST.motion} לקטע וידאו AI)</li>
+            <li>גרסה ערוכה של סרטון: {COST.videoEdit} קרדיטים</li>
             <li>הורדות ועריכה ידנית: חינם</li>
           </ul>
         </div>
@@ -190,7 +191,7 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
                     disabled={busy !== null}
                     className={`mt-6 rounded-full py-2.5 font-bold transition disabled:opacity-60 ${featured ? "bg-brand text-white shadow-lg shadow-brand/30 hover:bg-brand-strong" : "border border-brand text-brand hover:bg-brand/10"}`}
                   >
-                    {busy === id ? "פותח תשלום מאובטח…" : paid && ORDER.indexOf(id) < ORDER.indexOf(account.plan) ? `מעבר ל${p.name}` : `שדרוג ל${p.name}`}
+                    {busy === id ? "פותח תשלום מאובטח…" : paid && account.plan === id ? `מעבר לתשלום ${period === "year" ? "שנתי" : "חודשי"}` : paid && ORDER.indexOf(id) < ORDER.indexOf(account.plan) ? `מעבר ל${p.name}` : `שדרוג ל${p.name}`}
                   </button>
                 )}
               </li>
@@ -301,7 +302,7 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
               חידוש המסלול (ביטול הביטול)
             </button>
           ) : (
-            <button onClick={() => setCancel(true)} disabled={busy !== null} className="hover:text-text hover:underline">
+            <button onClick={() => setCancel(true)} disabled={busy !== null} className="py-2 hover:text-text hover:underline">
               ביטול המסלול
             </button>
           )}

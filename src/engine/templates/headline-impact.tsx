@@ -32,7 +32,14 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
   // photo (arms, props in hand) narrows the text instead of covering it.
   const squareHeroW = Math.min(H * 0.86 * ar, W * 0.52);
   const squareTextW = Math.max(W * 0.4, Math.min(W * 0.58, W - squareHeroW * 0.92 - W * 0.06));
-  const textBox: Box = wide
+  // No photo: the hook is the picture. It takes the centre of the frame, bigger, over the kit's AI
+  // scene (otherwise a faint texture behind the lecturer).
+  const solo = !assets.subject;
+  const textBox: Box = solo
+    ? wide
+      ? { left: W * 0.08, top: H * 0.08, width: W * 0.84, height: H * 0.84 }
+      : { left: W * 0.06, top: story ? H * (STORY_SAFE.top + 0.01) : H * 0.06, width: W * 0.88, height: H * (story ? 1 - STORY_SAFE.top - STORY_SAFE.bottom - 0.02 : 0.88) }
+    : wide
     ? {
         left: subjectSide === "left" ? (square ? W * 0.95 - squareTextW : W * 0.44) : W * 0.05,
         top: H * (square ? 0.08 : 0.1),
@@ -42,7 +49,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
     : { left: W * 0.06, top: story ? H * (STORY_SAFE.top + 0.01) : H * 0.06, width: W * 0.88, height: H * 0.42 };
   const fit = (t: string) =>
     t ? fitText({ text: t, withinWidth: textBox.width, fontFamily: head, fontWeight: 900 }).fontSize : Infinity;
-  const headSize = Math.min(fit(line1), fit(line2), square ? H * 0.15 : wide ? H * 0.2 : W * 0.2);
+  const headSize = Math.min(fit(line1), fit(line2), solo ? (wide ? H * 0.24 : W * 0.22) : square ? H * 0.15 : wide ? H * 0.2 : W * 0.2);
 
   const subSize = Math.round((wide ? H : W) * (square ? 0.05 : wide ? 0.045 : 0.052));
   // Tall: the hero fills what the text leaves, so the head never covers the hook or the pills.
@@ -84,9 +91,12 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
         }}
       />
       {assets.background && (
-        <AbsoluteFill style={{ opacity: 0.22 }}>
-          <Img src={assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "blur(6px) grayscale(0.4)" }} />
+        <AbsoluteFill style={{ opacity: solo ? 0.62 : 0.22 }}>
+          <Img src={assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", filter: solo ? "blur(1px) saturate(0.9)" : "blur(6px) grayscale(0.4)" }} />
         </AbsoluteFill>
+      )}
+      {solo && assets.background && (
+        <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, ${bg}${alpha(0.7)} 0%, ${bg}${alpha(0.25)} 65%)` }} />
       )}
 
       {/* Giant ghost of the lecturer: the memorable silhouette of "איתותים שקטים". */}
@@ -110,7 +120,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
       <Placed
         box={textBox}
         el="headline" t={o.headline}
-        style={{ display: "flex", flexDirection: "column", justifyContent: wide ? "center" : "flex-start", alignItems: wide ? "flex-start" : "center", textAlign: wide ? "right" : "center" }}
+        style={{ display: "flex", flexDirection: "column", justifyContent: wide || solo ? "center" : "flex-start", alignItems: wide && !solo ? "flex-start" : "center", textAlign: wide && !solo ? "right" : "center" }}
       >
         <Logo logo={assets.logo} height={logoH} maxWidth={textBox.width * 0.45} bg={bg} t={o.logo} progress={l1} style={{ marginBottom: logoH * 0.4 }} />
         <div
@@ -161,7 +171,7 @@ export const HeadlineImpact: React.FC<DesignProps> = ({ brand, copy, assets, sub
           {copy.subtitle}
         </div>
         {copy.tags.length > 0 && (
-          <div style={{ display: "flex", gap: subSize * 0.4, marginTop: subSize * 0.7, opacity: subIn, flexWrap: "wrap", justifyContent: wide ? "flex-start" : "center" }}>
+          <div style={{ display: "flex", gap: subSize * 0.4, marginTop: subSize * 0.7, opacity: subIn, flexWrap: "wrap", justifyContent: wide && !solo ? "flex-start" : "center" }}>
             {copy.tags.map((t) => (
               <Pill key={t} text={t} font={body} size={subSize * 0.7} color={accent} ink={inkOn(accent)} />
             ))}

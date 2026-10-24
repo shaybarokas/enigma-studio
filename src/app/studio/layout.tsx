@@ -9,6 +9,9 @@ import { WA_LABEL, WA_TEXT, waHref, WhatsAppIcon, WhatsAppLink } from "@/compone
 export default function StudioLayout({ children }: LayoutProps<"/studio">) {
   return (
     <div className="flex min-h-dvh flex-col">
+      <a href="#main" className="sr-only z-50 rounded-full bg-brand px-4 py-2 font-bold text-white focus:not-sr-only focus:fixed focus:start-4 focus:top-3">
+        דילוג לתוכן
+      </a>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-bg/80 px-4 backdrop-blur">
         <div className="flex min-w-0 items-center gap-1">
           <Link href="/studio" className="whitespace-nowrap text-lg font-black" dir="ltr">
@@ -47,7 +50,10 @@ export default function StudioLayout({ children }: LayoutProps<"/studio">) {
           </div>
         </div>
       </header>
-      {children}
+      {/* The skip link's target: each studio page brings its own <main>. */}
+      <div id="main" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+        {children}
+      </div>
       <UpgradeDialog />
     </div>
   );

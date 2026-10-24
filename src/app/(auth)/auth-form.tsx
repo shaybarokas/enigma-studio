@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { FormState } from "./actions";
 
 type Field = { name: string; label: string; type: string; autoComplete: string };
@@ -17,20 +17,34 @@ export function AuthForm({
   next?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
+  const [shown, setShown] = useState(false); // the password, typed on a phone, can be checked before sending
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>
       {next && <input type="hidden" name="next" value={next} />}
       {fields.map((f) => (
         <label key={f.name} className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold">{f.label}</span>
-          <input
-            name={f.name}
-            type={f.type}
-            autoComplete={f.autoComplete}
-            required
-            dir={f.type === "email" || f.type === "password" ? "ltr" : undefined}
-            className="rounded-xl border border-border bg-bg px-4 py-3 text-base outline-none transition focus:border-brand"
-          />
+          <span className="relative">
+            <input
+              name={f.name}
+              type={f.type === "password" && shown ? "text" : f.type}
+              autoComplete={f.autoComplete}
+              required
+              dir={f.type === "email" || f.type === "password" ? "ltr" : undefined}
+              className={`w-full rounded-xl border border-border bg-bg px-4 py-3 text-base outline-none transition focus:border-brand ${f.type === "password" ? "pe-4 ps-16" : ""}`}
+            />
+            {f.type === "password" && (
+              <button
+                type="button"
+                onClick={() => setShown((s) => !s)}
+                aria-pressed={shown}
+                aria-label="הצגת הסיסמה"
+                className="absolute inset-y-0 left-1 my-1 rounded-lg px-3 text-xs font-semibold text-muted hover:text-text"
+              >
+                {shown ? "הסתרה" : "הצגה"}
+              </button>
+            )}
+          </span>
         </label>
       ))}
       <div aria-live="polite" className="min-h-6 text-sm">

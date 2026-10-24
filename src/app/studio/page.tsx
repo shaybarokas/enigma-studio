@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { listKits } from "@/lib/kits";
 import { NewKitButton } from "./new-kit-button";
 import { KitCover } from "./kit-cover";
+import { KitActions } from "./kit-actions";
 
 export const metadata = { title: "הערכות שלי | Enigma Studio" };
 
@@ -54,7 +55,8 @@ async function Kits() {
       </div>
       <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {kits.map((k) => (
-          <li key={k.id}>
+          <li key={k.id} className="relative">
+            <KitActions id={k.id} title={k.title} />
             <Link
               href={`/studio/${k.id}`}
               className="group block overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-brand hover:shadow-xl hover:shadow-brand/10"

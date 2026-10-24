@@ -78,6 +78,25 @@ export const passwordChangedEmail = (name: string | null) =>
     note: `השינוי לא היה שלך? <a href="${esc(appUrl("/forgot"))}" style="color:#7c3aed">אפשר לאפס את הסיסמה כאן</a>.`,
   });
 
+// ---------- videos ----------
+
+export const videoEmails = {
+  ready: (name: string | null, video: string, kitUrl: string) =>
+    render({
+      subject: `${video} מוכן ✦`,
+      heading: `${video} מוכן`,
+      body: `${hi(name)}הסרטון הופק ומחכה לך בערכה, מוכן לצפייה ולהורדה. רוצים לתקן מילה, צבע או הדגשה? כפתור "✂️ עריכה" שליד הסרטון פותח את עורך הסרטון.`,
+      button: { label: "לצפייה בסרטון", url: kitUrl },
+    }),
+  failed: (name: string | null, video: string, kitUrl: string, credits: number) =>
+    render({
+      subject: `${video} לא הופק, הקרדיטים הוחזרו`,
+      heading: "משהו השתבש בהפקה",
+      body: `${hi(name)}הפקת ${esc(video)} נעצרה בגלל תקלה אצלנו${credits ? `, ו־${credits} הקרדיטים הוחזרו לחשבון שלך` : ""}. התסריט שמור, ואפשר לנסות שוב מהערכה. אם זה חוזר, נשמח לשמוע בוואטסאפ ונטפל.`,
+      button: { label: "חזרה לערכה", url: kitUrl },
+    }),
+};
+
 // ---------- billing ----------
 
 type Billing = { name: string | null; plan: string; amount?: string; date?: string | null; credits?: number };

@@ -7,6 +7,7 @@ import { refund } from "../credits";
 import { createAdminClient } from "../supabase/admin";
 import { compose, speak, type VoiceKey } from "./audio";
 import { renderToStorage } from "./produce";
+import { notifyVideo } from "./notify";
 import type { Revoice } from "./video-edits";
 
 /** Every media URL in an edited spec must be one of ours (the editor sends the spec back to us). */
@@ -60,10 +61,12 @@ export async function produceVersion(o: {
     const seconds = videoDuration(spec.scenes) / FPS;
     if (o.musicPrompt && seconds > o.musicSeconds - 0.5) spec = { ...spec, music: await compose(o.musicPrompt, seconds + 1, `${folder}/music.mp3`) };
     await set({ status: "rendering", spec });
-    await set({ status: "ready", url: await renderToStorage(spec, `${folder}/${spec.kind}.mp4`) });
+    await set({ status: "ready", ...(await renderToStorage(spec, `${folder}/${spec.kind}.mp4`)) });
+    await notifyVideo({ userId: o.userId, kitId: o.kitId, kind: spec.kind, edited: true });
   } catch (e) {
     await alertOwner("video:failed", "גרסה ערוכה של סרטון נכשלה (הקרדיטים הוחזרו)", { video: o.videoId, kit: o.kitId, error: (e as Error).message });
     if (o.cost) await refund(o.userId, o.cost, o.videoId);
     await set({ status: "failed", error: String((e as Error).message ?? e).slice(0, 500) });
+    await notifyVideo({ userId: o.userId, kitId: o.kitId, kind: o.spec.kind, edited: true, failed: { credits: o.cost } });
   }
 }

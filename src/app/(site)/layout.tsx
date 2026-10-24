@@ -54,7 +54,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
             </p>
             <p className="mt-2 text-sm text-muted">סטודיו קריאייטיב עם סוכן AI: גרפיקות, מודעות וסרטונים להשקה שלך, בקו עיצובי אחד ובשליטה מלאה. מבית אניגמה.</p>
           </div>
-          <nav aria-label="קישורים" className="grid grid-cols-2 gap-x-10 gap-y-2 text-sm">
+          <nav aria-label="קישורים" className="grid grid-cols-2 gap-x-10 text-sm [&>a]:py-1.5">
             <Link href="/signup" className="text-muted hover:text-text">הרשמה</Link>
             <Link href="/terms" className="text-muted hover:text-text">תנאי שימוש</Link>
             <Link href="/login" className="text-muted hover:text-text">כניסה</Link>

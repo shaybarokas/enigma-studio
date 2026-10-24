@@ -40,8 +40,13 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
   const ar = assets.subject?.aspect ?? 0.62;
   const lightFrom = subjectSide === "left" ? "right" : "left";
   const short = Math.min(W, H);
+  // No photo: the kit's AI scene becomes the studio, and the wordmark, tags and promise stand as one
+  // centred block in it (the layout otherwise keeps a side or the bottom free for the lecturer).
+  const solo = !assets.subject;
 
-  const markBox: Box = wide
+  const markBox: Box = solo
+    ? { left: W * 0.08, top: 0, width: W * 0.84, height: H * 0.5 }
+    : wide
     ? {
         left: subjectSide === "left" ? W * (format === "landscape" ? 0.47 : 0.53) : W * 0.05,
         top: H * 0.08,
@@ -50,12 +55,15 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
       }
     : { left: W * 0.06, top: story ? H * (STORY_SAFE.top + 0.01) : H * 0.05, width: W * 0.88, height: H * 0.26 };
   // A wide (head-and-shoulders) photo stands short in tall formats: the wordmark gives it more room.
-  const markSize = Math.min(fitLines(copy.wordmark, markBox.width, display, { uppercase: true }), wide ? H * 0.22 : W * (ar > 0.8 ? 0.17 : 0.26));
+  const markSize = Math.min(fitLines(copy.wordmark, markBox.width, display, { uppercase: true }), solo ? (wide ? H * 0.26 : W * 0.24) : wide ? H * 0.22 : W * (ar > 0.8 ? 0.17 : 0.26));
 
   // Height from the format, capped by width so a wide photo never swallows the wordmark.
   let heroH = Math.min(wide ? H * 0.95 : H * (story ? 0.58 : 0.62), (W * (format === "landscape" ? 0.42 : wide ? 0.46 : 0.8)) / ar);
   // Where the wordmark and its tags really end (pills included), not the box they may use.
-  const tagsH = copy.tags.length ? markSize * (0.18 + 0.2 * 2.1) : 0;
+  // The tags stay on one row: smaller when long, so a third tag never wraps onto the promise.
+  const tagChars = copy.tags.join("").length;
+  const tagSize = copy.tags.length ? Math.min(markSize * 0.2, (markBox.width * 0.92) / (tagChars * 0.55 + copy.tags.length * 2.2)) : 0;
+  const tagsH = copy.tags.length ? markSize * 0.18 + tagSize * 2.1 : 0;
   const logoH = markSize * 0.5;
   const logoRoom = logoSpace(assets.logo, logoH, markBox.width * 0.5);
   const markText: Box = { ...markBox, height: logoRoom + copy.wordmark.length * markSize * 0.92 + tagsH };
@@ -65,7 +73,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
 
   // The promise as a chip of two balanced lines, sized to its column, with its real height: wide
   // formats set it right under the wordmark and tags, tall ones at the bottom of the safe area.
-  const subW = wide ? markBox.width : W * 0.88;
+  const subW = solo ? W * 0.84 : wide ? markBox.width : W * 0.88;
   const subLines = balancedLines(copy.subtitle);
   const subSize = Math.min(Math.round((wide ? H : W) * (format === "landscape" ? 0.048 : 0.058)), fitLines(subLines, subW * 0.86, body) * 0.95);
   const subH = subSize * 1.2 * subLines.length + subSize * 0.6;
@@ -73,7 +81,13 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
   let subBox: Box = { left: wide ? markBox.left : W * 0.06, top: subBottom - subH, width: subW, height: subH };
   // Tall: a short (wide-cropped) hero stands low, and the face would meet the chip at the bottom. Then
   // the chip joins the wordmark at the top and the hero stands below them both.
-  if (!wide && H - heroH + heroH * 0.45 > subBox.top - short * 0.02) {
+  if (solo) {
+    const block = markText.height + markSize * 0.3 + subH;
+    const safeTop = story ? H * (STORY_SAFE.top + 0.01) : H * 0.06;
+    const top = Math.max(safeTop, (H - block) / 2);
+    markBox.top = markText.top = top;
+    subBox = { left: W * 0.08, top: top + markText.height + markSize * 0.3, width: subW, height: subH };
+  } else if (!wide && H - heroH + heroH * 0.45 > subBox.top - short * 0.02) {
     subBox = { ...subBox, top: markText.top + markText.height + markSize * 0.25 };
     heroH = Math.min(heroH, H - (subBox.top + subH + short * 0.02));
   }
@@ -147,12 +161,18 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
           background: `radial-gradient(ellipse at ${wide ? (subjectSide === "left" ? "30%" : "70%") : "50%"} 38%, #ffffff${alpha(0.32)} 0%, transparent 55%), linear-gradient(180deg, ${bg} 0%, ${bg} 62%, #000000${alpha(0.35)} 100%)`,
         }}
       />
+      {solo && assets.background && (
+        <AbsoluteFill>
+          <Img src={assets.background} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }} />
+          <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, ${bg}${alpha(0.75)} 0%, ${bg}${alpha(0.35)} 60%, ${bg}${alpha(0.6)} 100%)` }} />
+        </AbsoluteFill>
+      )}
       {spots.map((_, i) => prop(i, false))}
 
       <Placed
         box={markBox}
         el="wordmark" t={o.wordmark}
-        style={{ display: "flex", flexDirection: "column", alignItems: wide ? "flex-end" : "center", direction: "ltr", opacity: markIn, translate: `0 ${(1 - markIn) * -40}px` }}
+        style={{ display: "flex", flexDirection: "column", alignItems: wide && !solo ? "flex-end" : "center", direction: "ltr", opacity: markIn, translate: `0 ${(1 - markIn) * -40}px` }}
       >
         <Logo logo={assets.logo} height={logoH} maxWidth={markBox.width * 0.5} bg={bg} t={o.logo} style={{ marginBottom: logoH * 0.4 }} />
         {copy.wordmark.map((line, i) => (
@@ -173,9 +193,9 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
           </div>
         ))}
         {copy.tags.length > 0 && (
-          <div style={{ display: "flex", gap: markSize * 0.12, marginTop: markSize * 0.18, direction: "rtl" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: wide && !solo ? "flex-start" : "center", gap: markSize * 0.12, marginTop: markSize * 0.18, direction: "rtl", maxWidth: markBox.width }}>
             {copy.tags.map((t) => (
-              <Pill key={t} text={t} font={body} size={markSize * 0.2} color={ink} ink={bg} />
+              <Pill key={t} text={t} font={body} size={tagSize} color={ink} ink={bg} />
             ))}
           </div>
         )}
@@ -188,7 +208,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
       <Placed
         box={subBox}
         el="subtitle" t={o.subtitle}
-        style={{ display: "flex", alignItems: "flex-start", justifyContent: wide ? "flex-start" : "center", opacity: subIn }}
+        style={{ display: "flex", alignItems: "flex-start", justifyContent: wide && !solo ? "flex-start" : "center", opacity: subIn }}
       >
         <div
           style={{
@@ -201,7 +221,7 @@ export const StudioProps: React.FC<DesignProps> = ({ brand, copy, assets, subjec
             padding: `${subSize * 0.3}px ${subSize * 0.7}px`,
             borderRadius: subSize * 0.5,
             boxShadow: `0 ${subSize * 0.3}px ${subSize}px #000000${alpha(0.3)}`,
-            textAlign: wide ? "right" : "center",
+            textAlign: wide && !solo ? "right" : "center",
           }}
         >
           {subLines.map((l, i) => (

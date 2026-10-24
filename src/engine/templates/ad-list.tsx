@@ -32,9 +32,11 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   const safeBottom = story ? H * (1 - STORY_SAFE.bottom) : H * 0.95;
   const awayLeft = subjectSide === "left"; // the text column sits on the right when the lecturer is on the left
 
-  // The column for the list and the offer; the head spans the full width in tall formats.
-  const colW = W * (landscape ? 0.54 : tall ? 0.88 : 0.6);
-  const colLeft = tall ? W * 0.06 : awayLeft ? W - W * 0.05 - colW : W * 0.05;
+  // The column for the list and the offer; the head spans the full width in tall formats. Without a
+  // photo nothing needs the side or the corner: the column is centred and wider, the items larger.
+  const solo = !assets.subject;
+  const colW = W * (solo ? (landscape ? 0.64 : 0.88) : landscape ? 0.54 : tall ? 0.88 : 0.6);
+  const colLeft = solo ? (W - colW) / 2 : tall ? W * 0.06 : awayLeft ? W - W * 0.05 - colW : W * 0.05;
   const headW = tall ? W * 0.88 : colW;
   const headLeft = tall ? W * 0.06 : colLeft;
 
@@ -67,13 +69,13 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
   };
 
   const offerBox: Box = tall
-    ? { left: awayLeft ? W - W * 0.04 - offerW : W * 0.04, top: safeBottom - offerH, width: offerW, height: offerH }
+    ? { left: solo ? (W - offerW) / 2 : awayLeft ? W - W * 0.04 - offerW : W * 0.04, top: safeBottom - offerH, width: offerW, height: offerH }
     : { left: colLeft, top: safeBottom - offerH, width: colW, height: offerH };
 
   // List: between the head and whatever is below it.
   const listTop = headBox.top + headBox.height + H * (tall ? 0.03 : 0.025);
   // Tall: the list ends above both the lecturer's head and the offer.
-  const listBottom = (tall ? Math.min(offerBox.top, H - heroH * 0.92) : offerBox.top) - H * 0.025;
+  const listBottom = (tall && !solo ? Math.min(offerBox.top, H - heroH * 0.92) : offerBox.top) - H * 0.025;
   const listBox: Box = { left: colLeft, top: listTop, width: colW, height: Math.max(H * 0.15, listBottom - listTop) };
   const cap = landscape ? H * 0.04 : W * (story ? 0.05 : 0.044);
   const icon = (sz: number) => sz * 1.5;
@@ -115,7 +117,7 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         box={headBox}
         el="headline"
         t={o.headline}
-        style={{ opacity: headIn, translate: `0 ${(1 - headIn) * 30}px`, textAlign: landscape ? "right" : "center", display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center" }}
+        style={{ opacity: headIn, translate: `0 ${(1 - headIn) * 30}px`, textAlign: landscape && !solo ? "right" : "center", display: "flex", flexDirection: "column", alignItems: landscape && !solo ? "flex-start" : "center" }}
       >
         <Logo logo={assets.logo} height={logoH} maxWidth={colW * 0.4} bg={bg} t={o.logo} style={{ marginBottom: logoH * 0.4 }} />
         {lines.map((l, i) => (
@@ -162,9 +164,9 @@ export const AdList: React.FC<DesignProps> = ({ brand, copy, assets, subjectSide
         })}
       </Placed>
 
-      <Placed box={offerBox} el="cta" t={o.cta} style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", justifyContent: "flex-end", gap: ctaSize * 0.35 }}>
+      <Placed box={offerBox} el="cta" t={o.cta} style={{ display: "flex", flexDirection: "column", alignItems: landscape && !solo ? "flex-start" : "center", justifyContent: "flex-end", gap: ctaSize * 0.35 }}>
         {price && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: landscape ? "flex-start" : "center", opacity: ctaIn, textAlign: landscape ? "right" : "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: landscape && !solo ? "flex-start" : "center", opacity: ctaIn, textAlign: landscape && !solo ? "right" : "center" }}>
             <div style={{ fontFamily: head, fontWeight: 900, fontSize: amount, lineHeight: 1.05, color: light ? ink : "#ffffff", direction: "ltr", whiteSpace: "nowrap", textShadow: light ? "none" : `0 4px 20px #000000${alpha(0.6)}` }}>
               {price.number}
             </div>

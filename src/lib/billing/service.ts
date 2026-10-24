@@ -4,6 +4,7 @@ import { createAdminClient } from "../supabase/admin";
 import { PACKS, PLANS, discounted, ils, type Interval, type PaidPlan } from "../plans";
 import { couponError, findDiscount } from "../coupons";
 import { trySend } from "../email/send";
+import { contactOf } from "../email/contact";
 import { billingEmails } from "../email/templates";
 import { chargeToken, createTaxInvoice, generatePaymentLink, lookupPaymentRequest, transactionDocuments, type ParsedTransaction } from "./payplus";
 import { alertOwner } from "../alert";
@@ -16,15 +17,10 @@ export const planName = (plan: PaidPlan, interval: Interval | null) => `Enigma S
 /** The plan as the customer reads it in an email: "מסלול מקצועי (שנתי)". */
 const planLabel = (plan: PaidPlan, interval: Interval | null) => `מסלול ${PLANS[plan].name}${interval === "year" ? " (שנתי)" : ""}`;
 
-async function contact(userId: string) {
-  const { data } = await createAdminClient().auth.admin.getUserById(userId);
-  const email = data.user?.email ?? "";
-  return { email, name: (data.user?.user_metadata?.full_name as string | undefined) || null };
-}
 
 type BillingMail = keyof typeof billingEmails;
 async function notify(userId: string, kind: BillingMail, v: Omit<Parameters<(typeof billingEmails)[BillingMail]>[0], "name">) {
-  const c = await contact(userId);
+  const c = await contactOf(userId);
   if (c.email) await trySend({ to: c.email, ...billingEmails[kind]({ ...v, name: c.name }) }, `billing:${kind}`);
 }
 
@@ -199,7 +195,7 @@ async function handle(userId: string, action: Action) {
     return "ended";
   }
 
-  const { email, name } = await contact(userId);
+  const { email, name } = await contactOf(userId);
   const itemName = planName(a.plan, a.billing_interval);
   const res = await chargeToken({
     token: a.payplus_token,

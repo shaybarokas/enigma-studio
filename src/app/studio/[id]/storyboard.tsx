@@ -561,6 +561,7 @@ export function StoryboardEditor({
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && revise()}
+            aria-label="מה לשנות בתסריט"
             placeholder="למשל: פתיחה חדה יותר, פחות מילים, להדגיש את המחיר"
             disabled={busy !== null}
           />
@@ -731,7 +732,7 @@ function ClipPicker({
                   clipAudio: h.quote,
                 })
               }
-              className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${Math.abs(h.start - start) < 0.05 && Math.abs(h.end - end) < 0.05 ? "bg-brand text-white" : "bg-brand/10 text-brand"}`}
+              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${Math.abs(h.start - start) < 0.05 && Math.abs(h.end - end) < 0.05 ? "bg-brand text-white" : "bg-brand/10 text-brand"}`}
             >
               {h.quote ? "💬 " : ""}
               {h.label} · {clock(h.start)}

@@ -117,7 +117,7 @@ export function CourseClips({
                   <span className="text-xs text-muted">{time(c.seconds)}</span>
                   <button
                     onClick={() => remove(c)}
-                    className="ms-auto text-xs text-muted hover:text-danger"
+                    className="-m-2 ms-auto grid size-8 place-items-center rounded-full text-sm text-muted hover:bg-danger/10 hover:text-danger"
                     aria-label={`הסרת ${c.name}`}
                   >
                     ✕
@@ -142,7 +142,7 @@ export function CourseClips({
                       {c.highlights?.map((h, i) => (
                         <span
                           key={i}
-                          className="whitespace-nowrap rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand"
+                          className="whitespace-nowrap rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand"
                         >
                           {h.quote ? "💬 " : ""}
                           {h.label} · {time(h.start)}
@@ -196,6 +196,7 @@ export function CourseClips({
             value={link}
             onChange={(e) => setLink(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && fromLink()}
+            aria-label="קישור לקובץ וידאו"
             placeholder="או קישור ישיר לקובץ וידאו (‎.mp4)"
             dir="ltr"
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"

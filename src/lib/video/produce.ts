@@ -8,15 +8,20 @@ import { renderSandbox } from "../render/sandbox";
 import { createAdminClient } from "../supabase/admin";
 import type { VideoProps } from "@/engine/video/schema";
 import { prepareVideo, type Production } from "./prepare";
+import { cutArgs, lightenClips, type Cutter } from "./light-clips";
+import { notifyVideo } from "./notify";
+import type { Sandbox } from "@vercel/sandbox";
 
-/** Renders a spec in the cloud and stores the MP4; returns its public URL. */
+/** Renders a spec in the cloud and stores the MP4. The course footage it uses is cut into short
+ * files first (./light-clips); returns the URL and the spec as rendered, which the row keeps. */
 export async function renderToStorage(
-  spec: VideoProps,
+  input: VideoProps,
   path: string,
-): Promise<string> {
+): Promise<{ url: string; spec: VideoProps }> {
   const db = createAdminClient();
   const sandbox = await renderSandbox();
   try {
+    const spec = await lightenClips(input, path.slice(0, path.lastIndexOf("/")), sandboxCutter(sandbox));
     const { sandboxFilePath } = await renderMediaOnVercel({
       sandbox,
       compositionId: "video",
@@ -32,10 +37,37 @@ export async function renderToStorage(
       .from("kit-assets")
       .upload(path, data, { contentType: "video/mp4", upsert: true });
     if (error) throw new Error(`storage: ${error.message}`);
-    return db.storage.from("kit-assets").getPublicUrl(path).data.publicUrl;
+    return { url: db.storage.from("kit-assets").getPublicUrl(path).data.publicUrl, spec };
   } finally {
     await sandbox.stop().catch(() => {});
   }
+}
+
+// The renderer's own ffmpeg, already in the sandbox (its libraries sit next to it). It reads local
+// files only (no https), so each lesson is downloaded once, then every moment is cut from it.
+const FFMPEG_DIR = "node_modules/@remotion/compositor-linux-x64-gnu";
+function sandboxCutter(sandbox: Sandbox): Cutter {
+  const run = async (script: string, args: string[]) => {
+    const cmd = await sandbox.runCommand({ cmd: "bash", args: ["-c", script, "sh", ...args], detached: true });
+    const done = await cmd.wait();
+    if (done.exitCode !== 0) throw new Error(`exit ${done.exitCode}: ${(await done.stderr()).slice(0, 300)}`);
+  };
+  const files = new Map<string, Promise<string>>();
+  const local = (src: string) => {
+    if (!files.has(src)) {
+      const file = `/tmp/lesson-${files.size + 1}`;
+      files.set(src, run('curl -sSfL --retry 2 -o "$1" "$2"', [file, src]).then(() => file));
+    }
+    return files.get(src)!;
+  };
+  let cuts = 0;
+  return async (src, from, seconds) => {
+    const out = `/tmp/cut-${++cuts}.mp4`;
+    await run(`dir=$(readlink -f ${FFMPEG_DIR}) && LD_LIBRARY_PATH=$dir "$dir/ffmpeg" "$@"`, cutArgs(await local(src), from, seconds, out));
+    const data = await sandbox.readFileToBuffer({ path: out });
+    if (!data) throw new Error("ffmpeg wrote nothing");
+    return data;
+  };
 }
 
 export async function produceVideo(opts: Production) {
@@ -56,10 +88,8 @@ export async function produceVideo(opts: Production) {
     }
     await set({ status: "rendering", spec });
 
-    await set({
-      status: "ready",
-      url: await renderToStorage(spec, `${folder}/${opts.storyboard.kind}.mp4`),
-    });
+    await set({ status: "ready", ...(await renderToStorage(spec, `${folder}/${opts.storyboard.kind}.mp4`)) });
+    await notifyVideo({ userId: opts.userId, kitId: opts.kitId, kind: opts.storyboard.kind });
   } catch (e) {
     await alertOwner(
       "video:failed",
@@ -77,5 +107,6 @@ export async function produceVideo(opts: Production) {
       status: "failed",
       error: String((e as Error).message ?? e).slice(0, 500),
     });
+    await notifyVideo({ userId: opts.userId, kitId: opts.kitId, kind: opts.storyboard.kind, failed: { credits: opts.cost } });
   }
 }

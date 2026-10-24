@@ -14,6 +14,11 @@ export const TRANSITION_FRAMES: Record<TransitionKind, number> = { cut: 0, whip:
 
 export const wordSchema = z.object({ text: z.string(), start: z.number(), end: z.number() }); // seconds within the scene
 
+// A course clip is a whole recorded lesson (often hundreds of MB, in codecs browsers can't all play):
+// each moment a video uses is cut into a short file of its own (lib/video/light-clips.ts), and the
+// original is kept here so the moment can be cut again, e.g. when a beat grows longer.
+const clipOrigin = z.object({ src: z.string(), start: z.number() }).optional();
+
 export const sceneSchema = z.object({
   role: z.enum(BEAT_ROLES),
   visual: z.enum(VISUALS),
@@ -32,12 +37,13 @@ export const sceneSchema = z.object({
       audio: z.boolean(), // the lecturer's own words are heard (no narration over it)
       rate: z.number().default(1), // playback speed, slowed a little when the line outlasts the span
       x: z.number().default(0.5), // where the speaker stands across the frame (0–1): wide footage is cropped around them
+      from: clipOrigin, // the course file this moment was cut from (src is then the short cut)
     })
     .optional(), // footage from the course
   // The picture the camera cuts away to in the middle of the beat (b-roll): a still of its own, or a
   // moment of the course's footage.
   insert: z
-    .object({ image: z.string().optional(), clip: z.object({ src: z.string(), start: z.number(), aspect: z.number(), x: z.number().default(0.5) }).optional() })
+    .object({ image: z.string().optional(), clip: z.object({ src: z.string(), start: z.number(), aspect: z.number(), x: z.number().default(0.5), from: clipOrigin }).optional() })
     .optional(),
   audio: z.string().optional(),
   lead: z.number().default(0), // frames of picture before the narration starts
