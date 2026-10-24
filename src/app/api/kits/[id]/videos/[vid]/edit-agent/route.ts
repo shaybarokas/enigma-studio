@@ -1,3 +1,4 @@
+import { costContext } from "@/lib/costs";
 import { NextResponse } from "next/server";
 import { videoSchema } from "@/engine/video/schema";
 import { NOT_ENOUGH, spend } from "@/lib/credits";
@@ -8,8 +9,9 @@ import { planVideoEdit } from "@/lib/video/edit-agent";
 export const maxDuration = 120;
 
 export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/videos/[vid]/edit-agent">) {
-  const { id } = await ctx.params;
+  const { id, vid } = await ctx.params;
   const { user } = await getUserAndClient();
+  costContext({ action: "video-edit-agent", userId: user?.id, kitId: id, videoId: vid });
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { spec, instruction } = (await req.json()) as { spec?: unknown; instruction?: string };
   const parsed = videoSchema.safeParse(spec);

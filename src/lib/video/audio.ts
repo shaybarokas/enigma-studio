@@ -1,6 +1,7 @@
 // Narration and music. Two speech engines: ElevenLabs (returns the timing of every character)
 // and MiniMax via fal (timing recovered by transcribing the audio). Music is an instrumental bed
 // from ElevenLabs, licensed for commercial use on the paid plan.
+import { PRICES, recordCost } from "../costs";
 import { createAdminClient } from "../supabase/admin";
 import { stripNiqqud } from "./speech";
 
@@ -9,7 +10,7 @@ const BUCKET = "kit-assets";
 // The model Shay uses in ElevenLabs' own studio; its Hebrew sounds native where v3 did not.
 const TTS_MODEL = process.env.TTS_MODEL ?? "eleven_v4";
 
-import { VOICES, type VoiceKey } from "./voices";
+import { voiceOf } from "./voices";
 export { VOICES, type VoiceKey } from "./voices";
 
 async function store(path: string, data: Buffer, contentType: string) {
@@ -32,6 +33,7 @@ async function retrying(call: () => Promise<Response>): Promise<Response> {
 }
 
 async function elevenlabs(text: string, voiceId: string): Promise<{ audio: Buffer; words: Word[] }> {
+  recordCost("tts", text.length, text.length * PRICES.tts);
   const res = await retrying(() =>
     fetch(`${API}/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`, {
       method: "POST",
@@ -69,10 +71,13 @@ async function transcribeWords(audio: Buffer): Promise<Word[]> {
   form.append("file", new Blob([new Uint8Array(audio)], { type: "audio/mpeg" }), "speech.mp3");
   const res = await retrying(() => fetch(`${API}/speech-to-text`, { method: "POST", headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY! }, body: form }));
   const d = (await res.json()) as { words: { text: string; start: number; end: number; type: string }[] };
+  const seconds = d.words.at(-1)?.end ?? 0;
+  recordCost("scribe", seconds, seconds * PRICES.scribe);
   return d.words.filter((w) => w.type === "word").map(({ text, start, end }) => ({ text, start, end }));
 }
 
 async function minimax(text: string, voiceId: string): Promise<{ audio: Buffer; words: Word[] }> {
+  recordCost("minimax", text.length, text.length * PRICES.minimax);
   const res = await retrying(() =>
     fetch("https://fal.run/fal-ai/minimax/speech-2.6-hd", {
       method: "POST",
@@ -108,8 +113,8 @@ function alignCaption(caption: string, spoken: Word[]): Word[] {
  * Speaks one line (`spoken` may carry vowel points; `caption` is how it's written on screen).
  * Returns the stored mp3, its length and each caption word's timing in seconds.
  */
-export async function speak(spoken: string, caption: string, voice: VoiceKey, path: string): Promise<{ url: string; seconds: number; words: Word[] }> {
-  const v: { engine: "elevenlabs" | "minimax"; id: string } = VOICES[voice];
+export async function speak(spoken: string, caption: string, voice: string, path: string): Promise<{ url: string; seconds: number; words: Word[] }> {
+  const v = voiceOf(voice);
   const out = v.engine === "minimax" ? await minimax(spoken, v.id) : await elevenlabs(spoken, v.id);
   const timed = out.words.map((w) => ({ ...w, text: stripNiqqud(w.text) }));
   const url = await store(path, out.audio, "audio/mpeg");
@@ -118,6 +123,8 @@ export async function speak(spoken: string, caption: string, voice: VoiceKey, pa
 
 /** An instrumental track of the given length. */
 export async function compose(prompt: string, seconds: number, path: string): Promise<string> {
+  const billed = Math.min(Math.max(seconds, 10), 120);
+  recordCost("music", billed, billed * PRICES.music);
   const res = await retrying(() =>
     fetch(`${API}/music?output_format=mp3_44100_128`, {
       method: "POST",

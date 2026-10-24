@@ -7,7 +7,7 @@ import {
   VIDEO_FIELDS,
   type Storyboard,
 } from "@/lib/video/storyboard";
-import { VOICES } from "@/lib/video/voices";
+import { DEFAULT_VOICE, VOICES } from "@/lib/video/voices";
 import { videoSchema } from "@/engine/video/schema";
 
 async function draft(kitId: string, vid: string) {
@@ -84,10 +84,13 @@ export async function POST(
       { status: 409 },
     );
   const db = createAdminClient();
+  // A draft is narrated by a voice still offered (a retired one falls back to the default).
+  const voice = d.video.storyboard.voice in VOICES ? d.video.storyboard.voice : DEFAULT_VOICE;
+  const storyboard = { ...d.video.storyboard, voice };
   if (d.video.status === "failed") {
     const { data } = await db
       .from("videos")
-      .update({ status: "draft", error: null })
+      .update({ status: "draft", error: null, voice, storyboard })
       .eq("id", vid)
       .select(VIDEO_FIELDS)
       .single();
@@ -101,9 +104,9 @@ export async function POST(
       kit_id: id,
       user_id: d.user.id,
       kind: d.video.storyboard.kind,
-      voice: d.video.storyboard.voice,
+      voice,
       status: "draft",
-      storyboard: d.video.storyboard,
+      storyboard,
     })
     .select(VIDEO_FIELDS)
     .single();

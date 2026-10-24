@@ -1,3 +1,4 @@
+import { costContext } from "@/lib/costs";
 import { NextResponse } from "next/server";
 import { FORMAT_IDS, type FormatId } from "@/engine/formats";
 import { TEMPLATE_IDS, type TemplateId } from "@/engine/catalog";
@@ -15,6 +16,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/expor
   const { id } = await ctx.params;
   const body = (await req.json()) as { items?: ExportItem[]; all?: boolean };
   const { supabase, user } = await getUserAndClient();
+  costContext({ action: "export", userId: user?.id, kitId: id });
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { data: kit } = await supabase.from("kits").select("title, design, concepts, chosen, unlocked").eq("id", id).maybeSingle();
   if (!kit?.design || kit.chosen == null) return NextResponse.json({ error: "צריך קודם לבחור כיוון" }, { status: 400 });

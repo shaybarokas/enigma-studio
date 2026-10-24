@@ -1,3 +1,4 @@
+import { costContext, overDailyLimit, OVER_DAILY } from "@/lib/costs";
 import type Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { emptyBrief, type Brief } from "@/lib/agent/brief";
@@ -25,6 +26,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
   if (!message) return NextResponse.json({ error: "הודעה ריקה" }, { status: 400 });
 
   const { supabase, user } = await getUserAndClient();
+  costContext({ action: "interview", userId: user?.id, kitId: id });
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { data: kit } = await supabase.from("kits").select("messages, brief, status, design, media, concepts, subject").eq("id", id).maybeSingle();
   if (!kit) return NextResponse.json({ error: "הערכה לא נמצאה" }, { status: 404 });
@@ -42,6 +44,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
 
   // Once the kit is designed, the chat edits it.
   if (kit.status === "ready" && kit.design) {
+    costContext({ action: "edit", userId: user.id, kitId: id });
     if (!(await spend(user.id, COST.edit, "edit", id))) return NextResponse.json({ error: NOT_ENOUGH, code: "credits" }, { status: 402 });
     try {
       const recent = history.slice(-12);
@@ -77,6 +80,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
     }
   }
 
+  if (user && (await overDailyLimit(user.id, "interview"))) return NextResponse.json({ error: OVER_DAILY }, { status: 429 });
   try {
     const turn = await interviewTurn(history, (kit.brief as Brief | null) ?? emptyBrief, (kit.media as Media[] | null) ?? []);
     const reply: ChatMessage = { role: "assistant", text: turn.reply, quickReplies: turn.quickReplies };

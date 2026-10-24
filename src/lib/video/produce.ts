@@ -4,7 +4,7 @@ import { renderMediaOnVercel } from "@remotion/vercel";
 import { alertOwner } from "../alert";
 import { refund } from "../credits";
 import { COST } from "../plans";
-import { renderSandbox } from "../render/sandbox";
+import { releaseSandbox, renderSandbox } from "../render/sandbox";
 import { createAdminClient } from "../supabase/admin";
 import type { VideoProps } from "@/engine/video/schema";
 import { prepareVideo, type Production } from "./prepare";
@@ -39,7 +39,7 @@ export async function renderToStorage(
     if (error) throw new Error(`storage: ${error.message}`);
     return { url: db.storage.from("kit-assets").getPublicUrl(path).data.publicUrl, spec };
   } finally {
-    await sandbox.stop().catch(() => {});
+    await releaseSandbox(sandbox);
   }
 }
 

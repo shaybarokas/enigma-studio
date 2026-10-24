@@ -131,8 +131,21 @@ export function Studio({ initial }: { initial: Kit }) {
     try {
       const d = await post("/choose", JSON.stringify({ index }));
       setKit((k) => ({ ...k, chosen: index, design: d.design, status: "ready", messages: d.messages ?? k.messages }));
+      if (!d.design.assets.backgroundTall) void awaitTallScene(d.design.assets.background);
     } catch (e) {
       if (!(e instanceof Paywalled)) setError((e as Error).message);
+    }
+  };
+
+  // The chosen direction's tall scene is painted after choosing (about ten seconds): it replaces the
+  // cropped wide one in the tall formats as soon as it's there.
+  const awaitTallScene = async (background: string) => {
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const d = await fetch(`/api/kits/${kit.id}/design`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (d?.background !== background) return; // the design moved on (new background or direction)
+      if (d.backgroundTall)
+        return setKit((k) => (k.design?.assets.background === background ? { ...k, design: { ...k.design, assets: { ...k.design.assets, backgroundTall: d.backgroundTall } } } : k));
     }
   };
 

@@ -1,3 +1,4 @@
+import { costContext, overDailyLimit, OVER_DAILY } from "@/lib/costs";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { DesignProps } from "@/engine/design";
@@ -45,6 +46,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/media
   const loaded = await load(id);
   if ("error" in loaded) return loaded.error;
   const { supabase, user, kit } = loaded;
+  costContext({ action: "media", userId: user.id, kitId: id });
+  if ((await overDailyLimit(user.id, "media"))) return NextResponse.json({ error: OVER_DAILY }, { status: 429 });
 
   // The images are already in storage (see ./uploads); only their paths come in.
   const body = (await req.json()) as { paths?: string[]; text?: string; role?: string };

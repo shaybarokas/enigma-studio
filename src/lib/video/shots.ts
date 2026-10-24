@@ -1,6 +1,7 @@
 // The stills for the storyboard's scene beats: each "what the camera sees" line becomes its own
 // cinematic image, in the same photographic style as the kit's background, so the video cuts between
 // real moments of the field instead of returning to one picture.
+import { PRICES, recordCost } from "../costs";
 import { z } from "zod";
 import { structured } from "../ai/claude";
 import { generateScene } from "../agent/assets";
@@ -59,6 +60,7 @@ export async function animateShot(image: string, prompt: string, path: string): 
       }),
     });
     if (!res.ok) throw new Error(`kling ${res.status}: ${await res.text()}`);
+    recordCost("kling", 5, PRICES.kling.first5s);
     const { video } = (await res.json()) as { video: { url: string } };
     const file = await fetch(video.url);
     if (!file.ok) throw new Error(`download ${file.status}`);

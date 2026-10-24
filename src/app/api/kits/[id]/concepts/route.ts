@@ -1,3 +1,4 @@
+import { costContext } from "@/lib/costs";
 import { NextResponse } from "next/server";
 import { buildConceptAssets } from "@/lib/agent/assets";
 import type { Brief } from "@/lib/agent/brief";
@@ -16,6 +17,7 @@ export const maxDuration = 300;
 export async function POST(_req: Request, ctx: RouteContext<"/api/kits/[id]/concepts">) {
   const { id } = await ctx.params;
   const { supabase, user } = await getUserAndClient();
+  costContext({ action: "concepts", userId: user?.id, kitId: id });
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { data: kit } = await supabase.from("kits").select("brief, subject, media").eq("id", id).maybeSingle();
   if (!kit?.brief) return NextResponse.json({ error: "צריך קודם לספר לסוכן על ההשקה" }, { status: 400 });

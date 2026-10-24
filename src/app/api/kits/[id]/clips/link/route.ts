@@ -1,3 +1,4 @@
+import { costContext, overDailyLimit, OVER_DAILY } from "@/lib/costs";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/kits";
@@ -14,6 +15,8 @@ const PLAYER_SITES = /(youtube\.com|youtu\.be|vimeo\.com|facebook\.com|fb\.watch
 export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/clips/link">) {
   const { id } = await ctx.params;
   const { supabase, user } = await getUserAndClient();
+  costContext({ action: "clips", userId: user?.id, kitId: id });
+  if (user && (await overDailyLimit(user.id, "clips"))) return NextResponse.json({ error: OVER_DAILY }, { status: 429 });
   if (!user) return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { data: kit } = await supabase.from("kits").select("id").eq("id", id).maybeSingle();
   if (!kit) return NextResponse.json({ error: "הערכה לא נמצאה" }, { status: 404 });

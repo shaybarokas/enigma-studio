@@ -1,3 +1,4 @@
+import { costContext, overDailyLimit, OVER_DAILY } from "@/lib/costs";
 import { NextResponse } from "next/server";
 import { alertOwner } from "@/lib/alert";
 import { getUserAndClient } from "@/lib/kits";
@@ -35,6 +36,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/clips
   const loaded = await load(id);
   if ("error" in loaded) return loaded.error;
   const { user, clips } = loaded;
+  costContext({ action: "clips", userId: user.id, kitId: id });
+  if ((await overDailyLimit(user.id, "clips"))) return NextResponse.json({ error: OVER_DAILY }, { status: 429 });
   const body = (await req.json()) as { clipId?: string; name?: string; seconds?: number; aspect?: number; thumbs?: number[] };
   const clipId = String(body.clipId ?? "");
   if (!/^[a-f0-9-]{36}$/.test(clipId)) return NextResponse.json({ error: "קטע לא מוכר" }, { status: 400 });

@@ -1,6 +1,7 @@
 // The asset pipeline: AI scenes, cut-out lecturer and 3D props for a concept, stored in Supabase.
 import sharp from "sharp";
 import { createAdminClient } from "../supabase/admin";
+import { PRICES, recordCost } from "../costs";
 import type { Concept } from "./concepts";
 
 const BUCKET = "kit-assets";
@@ -9,6 +10,9 @@ type Image = { src: string; aspect: number };
 
 // fal caps concurrent requests per account (10), so several kits generating at once get 429s.
 // Those, and passing server errors, are waited out with backoff and jitter instead of failing the kit.
+// Per request (birefnet is billed by compute time and lists no charge).
+const FAL_PRICE: Record<string, number> = { "fal-ai/flux-pro/v1.1-ultra": PRICES.fluxUltra };
+
 async function fal<T>(model: string, input: Record<string, unknown>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`https://fal.run/${model}`, {
@@ -16,7 +20,10 @@ async function fal<T>(model: string, input: Record<string, unknown>): Promise<T>
       headers: { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
-    if (res.ok) return res.json() as Promise<T>;
+    if (res.ok) {
+      recordCost(model, 1, FAL_PRICE[model] ?? 0);
+      return res.json() as Promise<T>;
+    }
     const body = await res.text();
     if ((res.status === 429 || res.status >= 500) && attempt < 8) {
       await new Promise((r) => setTimeout(r, Math.min(20_000, 1500 * 2 ** attempt) * (0.6 + Math.random() * 0.8)));
@@ -79,13 +86,19 @@ export async function storeUpload(path: string, data: Buffer, contentType: strin
   return store(path, data, contentType);
 }
 
-/** Everything a concept needs, generated in parallel. */
+/** Everything a concept needs, generated in parallel. Its tall scene is painted only once the concept
+ * is chosen (tallSceneFor): until then the tall formats crop the wide one, and two of three would
+ * never be used. */
 export async function buildConceptAssets(concept: Concept, kitId: string, index: number, subject?: Image) {
   const base = `${kitId}/c${index}`;
-  const [background, backgroundTall, ...props] = await Promise.all([
+  const [background, ...props] = await Promise.all([
     generateScene(concept.backgroundPrompt, "16:9", `${base}/bg-16x9.jpg`),
-    generateScene(concept.backgroundPrompt, "9:16", `${base}/bg-9x16.jpg`),
     ...concept.propPrompts.slice(0, 3).map((p, i) => generateProp(p, `${base}/prop-${i}.png`)),
   ]);
-  return { background, backgroundTall, subject, props };
+  return { background, backgroundTall: undefined, subject, props };
+}
+
+/** The chosen concept's tall scene (3:4 and story), from the same prompt as its wide one. */
+export function tallSceneFor(concept: Concept, kitId: string, index: number) {
+  return generateScene(concept.backgroundPrompt, "9:16", `${kitId}/c${index}/bg-9x16.jpg`);
 }

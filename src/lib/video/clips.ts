@@ -1,6 +1,7 @@
 // Footage from the course itself. A clip the user uploads is transcribed (what is said, word by word)
 // and watched (frames the browser took from it), and the director marks the moments worth cutting
 // into a video: strong pictures, and sentences of the lecturer strong enough to be heard as they are.
+import { PRICES, recordCost } from "../costs";
 import { z } from "zod";
 import { structured } from "../ai/claude";
 import type { CourseClip } from "./storyboard-ui";
@@ -16,6 +17,8 @@ async function transcribe(url: string): Promise<Word[]> {
   const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", { method: "POST", headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY! }, body: form });
   if (!res.ok) throw new Error(`transcribe ${res.status}: ${await res.text()}`);
   const d = (await res.json()) as { words?: { text: string; start: number; end: number; type: string }[] };
+  const seconds = d.words?.at(-1)?.end ?? 0; // the clip's spoken length; silence after it isn't counted
+  recordCost("scribe", seconds, seconds * PRICES.scribe);
   return (d.words ?? []).filter((w) => w.type === "word").map(({ text, start, end }) => ({ text, start, end }));
 }
 

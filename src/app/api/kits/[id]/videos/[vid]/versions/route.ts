@@ -1,3 +1,4 @@
+import { costContext } from "@/lib/costs";
 import { after, NextResponse } from "next/server";
 import { FPS, videoDuration, videoSchema } from "@/engine/video/schema";
 import { getAccount, NOT_ENOUGH, spend } from "@/lib/credits";
@@ -48,6 +49,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/video
     .select(VIDEO_FIELDS)
     .single();
   if (error || !row) return NextResponse.json({ error: "לא הצלחנו להתחיל" }, { status: 500 });
+  costContext({ action: "video-version", userId: user.id, kitId: id, videoId: row.id });
   after(() =>
     produceVersion({
       videoId: row.id,

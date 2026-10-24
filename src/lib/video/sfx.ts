@@ -1,6 +1,7 @@
 // The editor's sound effects: whooshes on the cuts, a hit on the reveal, a riser before it, a pop
 // for each item on a list, a shimmer on the logo. Generated once by ElevenLabs and kept in storage,
 // so every video uses the same, tested sounds.
+import { PRICES, recordCost } from "../costs";
 import { createAdminClient } from "../supabase/admin";
 
 const VERSION = "v1";
@@ -25,6 +26,7 @@ async function ensure(name: keyof typeof SOUNDS): Promise<string> {
     body: JSON.stringify({ text, duration_seconds: seconds, prompt_influence: 0.6 }),
   });
   if (!res.ok) throw new Error(`sfx ${name} ${res.status}: ${await res.text()}`);
+  recordCost("sfx", seconds, seconds * PRICES.sfx);
   const { error } = await db.storage.from("kit-assets").upload(path, Buffer.from(await res.arrayBuffer()), { contentType: "audio/mpeg", upsert: true });
   if (error) throw new Error(`storage: ${error.message}`);
   return url;

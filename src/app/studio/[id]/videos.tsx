@@ -10,7 +10,7 @@ import { VideoEditor } from "./video-editor";
 import type { VideoProps } from "@/engine/video/schema";
 import type { EditOp, VideoEditRequest } from "@/lib/video/video-edits";
 import type { CourseClip } from "@/lib/video/storyboard-ui";
-import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
+import { DEFAULT_VOICE, VOICES, VOICE_KEYS, voiceOf } from "@/lib/video/voices";
 import { paywalled, refreshAccount, useAccount } from "@/components/account";
 import { COST, kitFeatures } from "@/lib/plans";
 
@@ -271,7 +271,7 @@ export function Videos({
                   </p>
                   <p className="text-xs text-muted">
                     קול:{" "}
-                    {VOICES[v.voice as keyof typeof VOICES]?.name ?? v.voice}
+                    {voiceOf(v.voice).name}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
+import { recordClaude } from "../costs";
 
 export const MODEL = "claude-opus-5-5";
 
@@ -30,6 +31,7 @@ export async function structured<S extends z.ZodType>(opts: {
     messages: opts.messages,
     output_config: { effort: opts.effort ?? "medium", format: betaZodOutputFormat(opts.schema) },
   });
+  recordClaude(res.usage, res.model);
   if (res.stop_reason === "refusal") throw new Error("הבקשה נדחתה על ידי מסנני הבטיחות");
   if (res.stop_reason === "max_tokens") throw new Error("התשובה נקטעה באמצע");
   if (res.parsed_output == null) throw new Error("התשובה לא תאמה למבנה הצפוי");

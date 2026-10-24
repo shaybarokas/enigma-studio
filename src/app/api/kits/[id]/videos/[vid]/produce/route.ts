@@ -1,3 +1,4 @@
+import { costContext } from "@/lib/costs";
 import { after, NextResponse } from "next/server";
 import type { DesignProps } from "@/engine/design";
 import { getAccount, NOT_ENOUGH, spend } from "@/lib/credits";
@@ -25,6 +26,7 @@ export async function POST(
   const { id, vid } = await ctx.params;
   const { force } = (await req.json().catch(() => ({}))) as { force?: boolean };
   const { supabase, user } = await getUserAndClient();
+  costContext({ action: "video", userId: user?.id, kitId: id, videoId: vid });
   if (!user)
     return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const [{ data: video }, { data: kit }] = await Promise.all([

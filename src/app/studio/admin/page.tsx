@@ -6,6 +6,22 @@ import { getUserAndClient } from "@/lib/kits";
 import { PLANS, ils, type PlanId } from "@/lib/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CouponForm, CouponToggle } from "./coupon-form";
+import { CREDIT_REASONS, NET_OF_SALE, USD_ILS, type CostAction } from "@/lib/costs";
+
+const ACTION_NAMES: Record<string, string> = {
+  interview: "שיחה עם הסוכן (חינם)",
+  media: "קריאת תמונות (חינם)",
+  concepts: "שלושה כיוונים",
+  edit: "שינויים בצ׳אט",
+  export: "הורדות (חינם)",
+  clips: "קריאת קטעי קורס (חינם)",
+  storyboard: "כתיבת תסריט (חינם)",
+  video: "סרטונים",
+  "video-version": "גרסאות ערוכות",
+  "video-edit-agent": "סוכן עריכת סרטון",
+  warm: "הכנת שרת ההפקה",
+  unknown: "לא משויך",
+};
 
 export const metadata = { title: "ניהול | Enigma Studio" };
 
@@ -22,12 +38,32 @@ async function Admin() {
   if (!isAdmin(user)) notFound();
   const db = createAdminClient();
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-  const [{ data: accounts }, { data: paid }, { data: coupons }, { count: kits }] = await Promise.all([
+  // The last 30 days, or since costs were first recorded (credits and revenue from before that had
+  // no costs measured against them).
+  const { data: first } = await db.from("costs").select("created_at").order("id").limit(1).maybeSingle();
+  const monthAgo = new Date(new Date().getTime() - 30 * 86_400_000).toISOString();
+  const since = first && first.created_at > monthAgo ? first.created_at : monthAgo;
+  const [{ data: accounts }, { data: paid }, { data: coupons }, { count: kits }, { data: costRows }, { data: spent }, { data: paid30 }] = await Promise.all([
     db.from("accounts").select("plan, cancel_at_period_end"),
     db.from("orders").select("amount, kind, paid_at").eq("status", "paid").gte("paid_at", monthStart),
     db.from("coupons").select("*").order("created_at", { ascending: false }),
     db.from("kits").select("id", { count: "exact", head: true }),
+    db.from("costs").select("action, usd").gte("created_at", since).limit(100000),
+    db.from("credit_log").select("reason, delta").lt("delta", 0).gte("created_at", since).limit(100000),
+    db.from("orders").select("amount").eq("status", "paid").gte("paid_at", since),
   ]);
+  // Margin, last 30 days: what outside services really cost (costs) against what came in.
+  const cost = new Map<string, { usd: number; calls: number }>();
+  for (const r of costRows ?? []) {
+    const c = cost.get(r.action) ?? { usd: 0, calls: 0 };
+    cost.set(r.action, { usd: c.usd + Number(r.usd), calls: c.calls + 1 });
+  }
+  const creditsBy = (reasons: string[] = []) => (spent ?? []).filter((r) => reasons.includes(r.reason)).reduce((s, r) => s - r.delta, 0);
+  const totalCostIls = [...cost.values()].reduce((s, c) => s + c.usd, 0) * USD_ILS;
+  const netRevenue = (paid30 ?? []).reduce((s, o) => s + Number(o.amount), 0) * NET_OF_SALE;
+  const margin = netRevenue ? Math.round((1 - totalCostIls / netRevenue) * 100) : null;
+  // The cheapest credit we sell (the advanced plan, paid yearly), after VAT and clearing.
+  const cheapest = (PLANS.business.price.year / 12 / PLANS.business.credits) * NET_OF_SALE;
   const byPlan = (accounts ?? []).reduce<Record<string, number>>((m, a) => ((m[a.plan] = (m[a.plan] ?? 0) + 1), m), {});
   const revenue = (paid ?? []).reduce((s, o) => s + Number(o.amount), 0);
   const stats: [string, string][] = [
@@ -53,6 +89,67 @@ async function Admin() {
         {(Object.keys(PLANS) as PlanId[]).map((p) => `${PLANS[p].name}: ${byPlan[p] ?? 0}`).join(" · ")}
         {` · הכנסות החודש לא כוללות החזרים שבוצעו ב־PayPlus`}
       </p>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-black">רווחיות · מ־{new Date(since).toLocaleDateString("he-IL")}</h2>
+        <p className="text-sm text-muted">
+          עלות אמיתית של כל קריאה לשירות חיצוני (Claude, תמונות, קריינות, מוזיקה, הפקה), מול ההכנסה נטו (אחרי מע״מ וסליקה). דולר מחושב לפי ₪{USD_ILS}. לא
+          כולל מנויים קבועים (Vercel, Supabase, ElevenLabs).
+        </p>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {[
+            ["הכנסות נטו", ils(Math.round(netRevenue))],
+            ["עלות שירותים", ils(Math.round(totalCostIls))],
+            ["רווח גולמי", margin == null ? "אין עדיין הכנסות" : `${margin}%`],
+          ].map(([k, v]) => (
+            <div key={k} className="rounded-2xl border border-border bg-surface p-4">
+              <p className="text-sm text-muted">{k}</p>
+              <p className={`text-2xl font-black ${k === "רווח גולמי" && margin != null && margin < 65 ? "text-danger" : ""}`}>{v}</p>
+            </div>
+          ))}
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="text-muted">
+              <tr className="border-b border-border">
+                {["פעולה", "קריאות", "עלות", "קרדיטים שנגבו", "עלות לקרדיט", "רווח בקרדיט הזול ביותר"].map((h) => (
+                  <th key={h} className="p-3 text-start font-semibold">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...cost.entries()]
+                .sort((a, b) => b[1].usd - a[1].usd)
+                .map(([action, c]) => {
+                  const credits = creditsBy(CREDIT_REASONS[action as CostAction]);
+                  const perCredit = credits ? (c.usd * USD_ILS) / credits : null;
+                  const m = perCredit == null ? null : Math.round((1 - perCredit / cheapest) * 100);
+                  return (
+                    <tr key={action} className="border-b border-border last:border-0">
+                      <td className="p-3 font-semibold">{ACTION_NAMES[action] ?? action}</td>
+                      <td className="p-3">{c.calls}</td>
+                      <td className="p-3" dir="ltr">
+                        ${c.usd.toFixed(2)}
+                      </td>
+                      <td className="p-3">{credits || "—"}</td>
+                      <td className="p-3">{perCredit == null ? "—" : `₪${perCredit.toFixed(3)}`}</td>
+                      <td className={`p-3 font-bold ${m != null && m < 65 ? "text-danger" : ""}`}>{m == null ? "—" : `${m}%`}</td>
+                    </tr>
+                  );
+                })}
+              {!cost.size && (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-muted">
+                    עוד אין נתוני עלות.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="space-y-4">
         <div>

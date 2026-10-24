@@ -5,7 +5,7 @@ import { forView, type DesignProps } from "@/engine/design";
 import { FORMATS, type FormatId } from "@/engine/formats";
 import { CATALOG, type TemplateId } from "@/engine/catalog";
 import { createAdminClient } from "../supabase/admin";
-import { renderSandbox } from "./sandbox";
+import { releaseSandbox, renderSandbox } from "./sandbox";
 
 export type ExportItem = { template: TemplateId; format: FormatId };
 export type ExportFile = ExportItem & { url: string; name: string };
@@ -42,7 +42,7 @@ export async function exportStills(design: DesignProps, items: ExportItem[], fol
       files.push({ ...item, name, data, url: db.storage.from(BUCKET).getPublicUrl(path, { download: name }).data.publicUrl });
     }
   } finally {
-    await sandbox.stop().catch(() => {});
+    await releaseSandbox(sandbox);
   }
 
   let zipUrl: string | undefined;

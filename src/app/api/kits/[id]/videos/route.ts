@@ -1,3 +1,4 @@
+import { costContext, overDailyLimit, OVER_DAILY } from "@/lib/costs";
 import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { NextResponse } from "next/server";
 import type { DesignProps } from "@/engine/design";
@@ -45,6 +46,8 @@ export async function POST(
   const v: VoiceKey = voice && voice in VOICES ? voice : DEFAULT_VOICE;
 
   const { supabase, user } = await getUserAndClient();
+  costContext({ action: "storyboard", userId: user?.id, kitId: id });
+  if (user && (await overDailyLimit(user.id, "storyboard"))) return NextResponse.json({ error: OVER_DAILY }, { status: 429 });
   if (!user)
     return NextResponse.json({ error: "צריך להתחבר" }, { status: 401 });
   const { data: kit } = await supabase

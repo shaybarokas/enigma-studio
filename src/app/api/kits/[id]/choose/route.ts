@@ -1,5 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { tallSceneFor } from "@/lib/agent/assets";
+import { costContext } from "@/lib/costs";
 import { getUserAndClient, type ChatMessage, type KitConcept } from "@/lib/kits";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { DesignProps } from "@/engine/design";
 
 // Picks one of the three directions as the kit's design.
 export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/choose">) {
@@ -25,5 +29,25 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/choos
           } as ChatMessage,
         ];
   await supabase.from("kits").update({ chosen: index, design, status: "ready", messages: next }).eq("id", id);
+  // The chosen direction's tall scene is painted now (part of the directions' credits). It joins
+  // the design and the concept when ready; the studio picks it up (GET ../design).
+  if (!design.assets.backgroundTall) {
+    costContext({ action: "concepts", userId: user.id, kitId: id });
+    after(async () => {
+      try {
+        const tall = await tallSceneFor(concepts[index].concept, `${user.id}/${id}`, index);
+        const db = createAdminClient();
+        const { data: now } = await db.from("kits").select("design, concepts, chosen").eq("id", id).single();
+        const withTall = (d: DesignProps) => (d.assets.background === design.assets.background ? { ...d, assets: { ...d.assets, backgroundTall: tall } } : d);
+        const list = (now!.concepts as KitConcept[]).map((c, i) => (i === index ? { ...c, design: withTall(c.design) } : c));
+        await db
+          .from("kits")
+          .update({ concepts: list, ...(now!.chosen === index && now!.design ? { design: withTall(now!.design as DesignProps) } : {}) })
+          .eq("id", id);
+      } catch (e) {
+        console.error("[choose:tall]", (e as Error).message); // the tall formats keep cropping the wide scene
+      }
+    });
+  }
   return NextResponse.json({ design, messages: next });
 }
