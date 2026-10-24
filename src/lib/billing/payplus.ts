@@ -207,9 +207,15 @@ export function verifyCallback(rawBody: string, headers: Headers): boolean {
 
 type DocList = { invoices?: { status?: string; original_doc_url?: string; copy_doc_url?: string }[] };
 
-export async function transactionDocuments(transactionUid: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const res = await call<DocList>("Invoice/GetDocuments", { transaction_uid: transactionUid, filter: { fromDate: today, untilDate: today } });
+// Invoice+ dates its documents in Israel time, which can be a day ahead of UTC (a payment at 01:00 is
+// yesterday in UTC): the search spans the day before and after the payment.
+const ilDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
+export async function transactionDocuments(transactionUid: string, around: Date = new Date()) {
+  const day = 86_400_000;
+  const res = await call<DocList>("Invoice/GetDocuments", {
+    transaction_uid: transactionUid,
+    filter: { fromDate: ilDate(new Date(around.getTime() - day)), untilDate: ilDate(new Date(around.getTime() + day)) },
+  });
   if (!res.ok) return [];
   return (res.data.invoices ?? []).filter((d) => d.status === "success");
 }

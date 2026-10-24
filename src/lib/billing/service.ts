@@ -98,11 +98,11 @@ export async function completeOrder(t: ParsedTransaction): Promise<string> {
   if (data !== "ok") return data as string;
 
   // The IPN lookup (return page) carries no invoice: fetch the one PayPlus issued for the payment.
+  // Invoice+ may issue it a little after the payment; the settle cron keeps looking (backfillInvoices).
   if (!t.invoiceUrl) {
     const docs = await transactionDocuments(t.transactionUid);
     const url = docs[0]?.original_doc_url ?? docs[0]?.copy_doc_url;
     if (url) await db.from("orders").update({ invoice_url: url }).eq("id", t.orderId);
-    else await alertOwner("billing:invoice", "לא נמצאה חשבונית לתשלום: לבדוק ב-Invoice+", { order: t.orderId, transaction: t.transactionUid });
   }
 
   const { data: o } = await db.from("orders").select("user_id, kind, plan, billing_interval, credits, amount").eq("id", t.orderId).single();
@@ -149,6 +149,32 @@ export async function settlePending() {
   const results: Record<string, string> = {};
   for (const o of data ?? []) results[o.id] = await settleOrder(o.id);
   return results;
+}
+
+/** Paid orders of the last week still without their invoice: looked up again (Invoice+ can issue
+ * the document a while after the payment). One still missing after half an hour alerts the owner. */
+export async function backfillInvoices() {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("orders")
+    .select("id, transaction_uid, paid_at, amount")
+    .eq("status", "paid")
+    .is("invoice_url", null)
+    .not("transaction_uid", "is", null)
+    .gt("paid_at", new Date(Date.now() - 7 * 86_400_000).toISOString())
+    .limit(50);
+  let found = 0;
+  const missing: string[] = [];
+  for (const o of data ?? []) {
+    const docs = await transactionDocuments(o.transaction_uid!, new Date(o.paid_at!));
+    const url = docs[0]?.original_doc_url ?? docs[0]?.copy_doc_url;
+    if (url) {
+      await db.from("orders").update({ invoice_url: url }).eq("id", o.id);
+      found++;
+    } else if (Date.now() - new Date(o.paid_at!).getTime() > 30 * 60_000) missing.push(`${o.id} (${o.amount}₪)`);
+  }
+  if (missing.length) await alertOwner("billing:invoice", "תשלומים בלי חשבונית ב-Invoice+ גם אחרי חצי שעה: לבדוק ולהפיק ידנית", { orders: missing.join(", ") });
+  return { checked: data?.length ?? 0, found, missing: missing.length };
 }
 
 /** Sent when the customer cancels in the studio. */
