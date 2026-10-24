@@ -33,6 +33,7 @@ export default function SignupPage() {
       <AuthForm
         action={signUp}
         submitLabel="הרשמה והתחלה"
+        consent={{ name: "marketing", label: "אשמח לקבל במייל טיפים, השראה ומבצעים מ־Enigma Studio (אפשר להסיר בכל רגע)" }}
         fields={[
           { name: "full_name", label: "שם מלא", type: "text", autoComplete: "name" },
           { name: "email", label: "אימייל", type: "email", autoComplete: "email" },

@@ -16,6 +16,7 @@ export type BillingAccount = {
   last4: string | null;
   kitPasses: number;
   discountUntil: string | null;
+  marketing: boolean; // opted in to marketing email
 };
 export type Order = { id: string; kind: "subscribe" | "pack" | "renewal"; plan: PaidPlan | null; billing_interval: Interval | null; credits: number | null; amount: number; paid_at: string; invoice_url: string | null };
 
@@ -289,6 +290,8 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
         </section>
       )}
 
+      <MarketingToggle initial={account.marketing} />
+
       <p className="text-center text-sm text-muted">
         <a href="/reset" className="hover:text-text hover:underline">
           שינוי סיסמה
@@ -309,5 +312,35 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
         </p>
       )}
     </main>
+  );
+}
+
+// Marketing email on or off (service email about the account always arrives).
+function MarketingToggle({ initial }: { initial: boolean }) {
+  const [on, setOn] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    const res = await fetch("/api/account", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marketing: !on }) }).catch(() => null);
+    if (res?.ok) setOn(!on);
+    setBusy(false);
+  };
+  return (
+    <section className="mx-auto flex w-full max-w-xl items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-4">
+      <div>
+        <p className="font-bold">טיפים, השראה ומבצעים במייל</p>
+        <p className="text-sm text-muted">הודעות על החשבון (תשלומים, סרטון שמוכן) מגיעות בכל מקרה.</p>
+      </div>
+      <button
+        role="switch"
+        aria-checked={on}
+        aria-label="קבלת טיפים, השראה ומבצעים במייל"
+        onClick={toggle}
+        disabled={busy}
+        className={`relative h-8 w-14 shrink-0 rounded-full transition ${on ? "bg-brand" : "bg-border"} disabled:opacity-60`}
+      >
+        <span className={`absolute top-1 size-6 rounded-full bg-white shadow transition-all ${on ? "start-7" : "start-1"}`} />
+      </button>
+    </section>
   );
 }

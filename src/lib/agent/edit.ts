@@ -45,7 +45,7 @@ Rules:
 - Copy stays short and in the audience's language; never invent facts, numbers or testimonials.
 - Colours must keep contrast: ink on bg ≥ 7:1, accent on bg ≥ 3:1. "More premium" usually means deeper bg, gold or champagne accent, a serif wordmark (Playfair Display), calmer copy. "More energetic" means saturated colours, condensed display (Anton/Bebas Neue), punchier copy.
 - Hebrew fonts for headline/body: Heebo, Rubik, Secular One, Suez One, Frank Ruhl Libre.
-- Sizes: "bigger" ≈ 1.15–1.3, "much bigger" ≈ 1.5, "smaller" ≈ 0.8. Elements: ${Object.entries(ELEMENT_NAMES)
+- Sizes: text (headline, wordmark, subtitle, bullets, cta) is already set as large as its space allows, so it can't grow much without crowding: for "bigger text" scale at most 1.1, and when the user wants it to really stand out, shorten it (fewer words get a larger size automatically) and say so. Pictures and props: "bigger" ≈ 1.15–1.3, "much bigger" ≈ 1.5. "Smaller" ≈ 0.8 for anything. Elements: ${Object.entries(ELEMENT_NAMES)
   .map(([k, v]) => `${k} (${v})`)
   .join(", ")}.
 - A different background → newBackgroundPrompt: cinematic photographic scene, no people, no text, matching the palette, calm space for text.
@@ -62,6 +62,8 @@ export async function planEdit(history: Anthropic.Beta.BetaMessageParam[], desig
   });
 }
 
+const TEXT_ELEMENTS = new Set(["headline", "wordmark", "subtitle", "bullets", "cta", "kicker", "tags"]);
+
 /** Applies an edit; scale changes multiply the element's size in every output. */
 export function applyEdit(d: DesignProps, e: DesignEdit, background?: { wide: string; tall: string }): DesignProps {
   const copy = { ...d.copy };
@@ -70,7 +72,9 @@ export function applyEdit(d: DesignProps, e: DesignEdit, background?: { wide: st
   for (const [k, v] of Object.entries(e.palette)) if (v) (palette as Record<string, string>)[k] = v;
   const overrides = { ...d.overrides };
   for (const { el, scale } of e.scale) {
-    const s = Math.min(2.5, Math.max(0.3, (overrides[el]?.scale ?? 1) * scale));
+    // Text is fitted to its space: it may grow only a little (see Placed for the frame).
+    const max = TEXT_ELEMENTS.has(el) ? 1.1 : 2.5;
+    const s = Math.min(max, Math.max(0.3, (overrides[el]?.scale ?? 1) * scale));
     overrides[el] = { ...overrides[el], scale: s };
   }
   return {

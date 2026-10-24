@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { trySend } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
 
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
     if (!error) {
       // First confirmation of a new account: the welcome email, and into the studio.
       if (p.get("welcome") === "1" && data.user?.email) {
+        // The marketing opt-in ticked at signup, now that the address is confirmed.
+        if (data.user.user_metadata?.marketing === true)
+          await createAdminClient().from("accounts").update({ marketing_consent: true, marketing_consent_at: new Date().toISOString() }).eq("user_id", data.user.id);
         await trySend({ to: data.user.email, ...welcomeEmail((data.user.user_metadata?.full_name as string | undefined) || null) }, "welcome");
       }
       return NextResponse.redirect(target);

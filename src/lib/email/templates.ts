@@ -9,9 +9,11 @@ export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", 
 const dateHe = (iso: string | null | undefined) =>
   iso ? new Intl.DateTimeFormat("he-IL", { dateStyle: "long", timeZone: "Asia/Jerusalem" }).format(new Date(iso)) : "";
 
-type Mail = { subject: string; heading: string; body: string; button?: { label: string; url: string }; note?: string };
+export type Mail = { subject: string; heading: string; body: string; button?: { label: string; url: string }; note?: string; footer?: string };
 
-function render(m: Mail) {
+const SERVICE_FOOTER = "נשלח מ־Enigma Studio, הסטודיו שמייצר ערכות השקה עם סוכן AI. זו הודעת שירות על החשבון שלך.";
+
+export function render(m: Mail) {
   const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(m.subject)}</title></head>
 <body style="margin:0;background:#0f0f1a;font-family:Arial,Helvetica,sans-serif;color:#0f0f1a;direction:rtl;text-align:right">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f1a;padding:28px 12px"><tr><td align="center">
@@ -23,7 +25,7 @@ function render(m: Mail) {
 ${m.button ? `<div style="padding-top:24px"><a href="${esc(m.button.url)}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:bold;padding:14px 26px;border-radius:999px;font-size:16px">${m.button.label}</a></div>` : ""}
 ${m.note ? `<div style="font-size:13px;line-height:1.6;color:#6b6880;padding-top:22px;border-top:1px solid #e6e1f5;margin-top:26px">${m.note}</div>` : ""}
 </td></tr>
-<tr><td style="font-size:12px;color:#8a87a6;padding:16px 4px 0;line-height:1.6">נשלח מ־Enigma Studio, הסטודיו שמייצר ערכות השקה עם סוכן AI. זו הודעת שירות על החשבון שלך.</td></tr>
+<tr><td style="font-size:12px;color:#8a87a6;padding:16px 4px 0;line-height:1.6">${m.footer ?? SERVICE_FOOTER}</td></tr>
 </table></td></tr></table></body></html>`;
   const strip = (s: string) =>
     s
@@ -34,11 +36,11 @@ ${m.note ? `<div style="font-size:13px;line-height:1.6;color:#6b6880;padding-top
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .replace(/&amp;/g, "&");
-  const text = [strip(m.heading), "", strip(m.body), m.button ? `\n${m.button.label}: ${m.button.url}` : "", m.note ? `\n${strip(m.note)}` : "", "\n— Enigma Studio"].join("\n");
+  const text = [strip(m.heading), "", strip(m.body), m.button ? `\n${m.button.label}: ${m.button.url}` : "", m.note ? `\n${strip(m.note)}` : "", "\n— Enigma Studio", m.footer ? `\n${strip(m.footer)}` : ""].join("\n");
   return { subject: m.subject, html, text };
 }
 
-const hi = (name: string | null) => (name ? `${esc(name.split(" ")[0])}, ` : "");
+export const hi = (name: string | null) => (name ? `${esc(name.split(" ")[0])}, ` : "");
 
 // ---------- account ----------
 

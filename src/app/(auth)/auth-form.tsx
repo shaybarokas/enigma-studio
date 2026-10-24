@@ -10,11 +10,13 @@ export function AuthForm({
   fields,
   submitLabel,
   next,
+  consent,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   fields: Field[];
   submitLabel: string;
   next?: string;
+  consent?: { name: string; label: React.ReactNode }; // an optional checkbox, unticked by default
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const [shown, setShown] = useState(false); // the password, typed on a phone, can be checked before sending
@@ -47,6 +49,12 @@ export function AuthForm({
           </span>
         </label>
       ))}
+      {consent && (
+        <label className="flex items-start gap-2.5 text-sm leading-relaxed text-muted">
+          <input type="checkbox" name={consent.name} className="mt-1 size-4 shrink-0 accent-brand" />
+          <span>{consent.label}</span>
+        </label>
+      )}
       <div aria-live="polite" className="min-h-6 text-sm">
         {state?.error && <p className="text-danger">{state.error}</p>}
         {state?.done && <p className="font-semibold text-ok">{state.done}</p>}

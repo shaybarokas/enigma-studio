@@ -6,6 +6,15 @@ import { getUserAndClient } from "@/lib/kits";
 import { PLANS, ils, type PlanId } from "@/lib/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CouponForm, CouponToggle } from "./coupon-form";
+import { Campaigns, type CampaignRow } from "./campaigns";
+
+const STEP_NAMES: Record<string, string> = {
+  "seq:start": "נרשם ולא פתח ערכה (אחרי יום)",
+  "seq:choose": "יש כיוונים ולא בחר (אחרי יום)",
+  "seq:video": "יש ערכה ואין סרטון (אחרי יומיים)",
+  "seq:credits": "חינמי שנגמרו לו הקרדיטים",
+  "seq:winback": "לא פעיל 30 יום",
+};
 import { CREDIT_REASONS, NET_OF_SALE, USD_ILS, type CostAction } from "@/lib/costs";
 
 const ACTION_NAMES: Record<string, string> = {
@@ -52,6 +61,13 @@ async function Admin() {
     db.from("credit_log").select("reason, delta").lt("delta", 0).gte("created_at", since).limit(100000),
     db.from("orders").select("amount").eq("status", "paid").gte("paid_at", since),
   ]);
+  const [{ data: campaigns }, { data: logs }, ...segments] = await Promise.all([
+    db.from("campaigns").select("*").order("created_at", { ascending: false }).limit(30),
+    db.from("email_log").select("kind").like("kind", "seq:%").gte("sent_at", monthAgo).limit(100000),
+    ...(["all", "free", "paid", "inactive"] as const).map((s) => db.rpc("marketing_audience", { p_segment: s })),
+  ]);
+  const audience = Object.fromEntries((["all", "free", "paid", "inactive"] as const).map((s, i) => [s, (segments[i].data as unknown[] | null)?.length ?? 0]));
+  const stepCounts = (logs ?? []).reduce<Record<string, number>>((m, l) => ((m[l.kind] = (m[l.kind] ?? 0) + 1), m), {});
   // Margin, last 30 days: what outside services really cost (costs) against what came in.
   const cost = new Map<string, { usd: number; calls: number }>();
   for (const r of costRows ?? []) {
@@ -149,6 +165,25 @@ async function Admin() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-black">דיוור</h2>
+        <p className="text-sm text-muted">
+          רק למי שאישר דיוור בהרשמה או בעמוד המסלול ({audience.all} כרגע). בכל מייל: &quot;פרסומת&quot; בתחילת הנושא, פרטי השולח והסרה בלחיצה. הודעות שירות (תשלום, סרטון מוכן) לא תלויות באישור.
+        </p>
+        <div className="rounded-2xl border border-border bg-surface p-4 text-sm">
+          <p className="mb-2 font-bold">מיילים אוטומטיים · 30 ימים (נשלחים כל בוקר, כל אחד פעם אחת, לכל היותר אחד בשלושה ימים)</p>
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {Object.entries(STEP_NAMES).map(([k, v]) => (
+              <li key={k} className="flex justify-between gap-3 rounded-lg bg-bg px-3 py-1.5">
+                <span>{v}</span>
+                <strong>{stepCounts[k] ?? 0}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <Campaigns rows={(campaigns ?? []) as CampaignRow[]} audience={audience} />
       </section>
 
       <section className="space-y-4">

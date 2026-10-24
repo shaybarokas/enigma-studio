@@ -26,11 +26,11 @@ function safeNext(v: FormDataEntryValue | null) {
 
 // A one-time link that confirms the address (new accounts) or, for an account that never confirmed,
 // confirms it on click. `welcome` makes /auth/confirm send the welcome email once it succeeds.
-async function sendConfirmation(email: string, name: string | null, type: "signup" | "magiclink", password?: string) {
+async function sendConfirmation(email: string, name: string | null, type: "signup" | "magiclink", password?: string, marketing = false) {
   const admin = createAdminClient();
   const { data, error } =
     type === "signup"
-      ? await admin.auth.admin.generateLink({ type: "signup", email, password: password!, options: { data: { full_name: name } } })
+      ? await admin.auth.admin.generateLink({ type: "signup", email, password: password!, options: { data: { full_name: name, marketing } } })
       : await admin.auth.admin.generateLink({ type: "magiclink", email });
   if (error || !data.properties?.hashed_token) return { error };
   const url = appUrl(`/auth/confirm?type=${type}&welcome=1&token_hash=${encodeURIComponent(data.properties.hashed_token)}`);
@@ -70,7 +70,10 @@ export async function signUp(_: FormState, formData: FormData): Promise<FormStat
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "כתובת האימייל לא תקינה." };
   if (password.length < 8) return { error: "הסיסמה צריכה להכיל לפחות 8 תווים." };
 
-  const { error } = await sendConfirmation(email, fullName, "signup", password);
+  // Marketing email only with an explicit, unticked-by-default opt-in (moved into the account once
+  // the address is confirmed, see /auth/confirm).
+  const marketing = formData.get("marketing") === "on";
+  const { error } = await sendConfirmation(email, fullName, "signup", password, marketing);
   if (error && /already|registered|exists/i.test(error.message)) {
     // Existing address: the same answer as a new one (nobody learns who has an account); its
     // owner gets a link that signs in, or confirms an account that was never confirmed.

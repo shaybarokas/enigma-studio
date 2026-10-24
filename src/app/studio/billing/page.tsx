@@ -24,7 +24,7 @@ async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billi
   const a = await getAccount(user.id);
   const { data: more } = await createAdminClient()
     .from("accounts")
-    .select("billing_interval, cancel_at_period_end, card_last4, credits_reset_at, extra_credits, kit_passes, discount_until")
+    .select("billing_interval, cancel_at_period_end, card_last4, credits_reset_at, extra_credits, kit_passes, discount_until, marketing_consent")
     .eq("user_id", user.id)
     .maybeSingle();
   const { data: orders } = await supabase
@@ -44,6 +44,7 @@ async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billi
     last4: more?.card_last4 ?? null,
     kitPasses: more?.kit_passes ?? 0,
     discountUntil: more?.discount_until ?? null,
+    marketing: more?.marketing_consent ?? false,
   };
   return (
     <>

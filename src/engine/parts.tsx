@@ -15,6 +15,8 @@ export function useEnter() {
 }
 
 /** A positioned element the editor can select (data-el) and move, scale, rotate or hide (t). */
+const TEXT = new Set(["headline", "wordmark", "subtitle", "bullets", "cta", "kicker", "tags"]);
+
 export const Placed: React.FC<{
   box: Box;
   el?: string;
@@ -22,10 +24,19 @@ export const Placed: React.FC<{
   style?: React.CSSProperties;
   children: React.ReactNode;
 }> = ({ box, el, t, style, children }) => {
-  const { width: W } = useVideoConfig();
+  const { width: W, height: H } = useVideoConfig();
   if (t?.hidden) return null;
-  // A size change never pushes a full-width element out of the frame.
-  const scale = Math.min(t?.scale ?? 1, Math.max(1, (W * 0.96) / box.width));
+  // A size change never pushes text out of the frame: it grows around its centre, so its room is
+  // the distance from that centre to the nearest edge (less a small margin). Pictures may bleed off
+  // an edge by design (the lecturer stands on the bottom one); they only keep within the width.
+  const cx = box.left + box.width / 2 + (t?.x ?? 0);
+  const cy = box.top + box.height / 2 + (t?.y ?? 0);
+  const m = Math.min(W, H) * 0.02;
+  const room =
+    el && TEXT.has(el)
+      ? Math.min((Math.min(cx, W - cx) - m) / (box.width / 2), (Math.min(cy, H - cy) - m) / (box.height / 2))
+      : (W * 0.96) / box.width;
+  const scale = Math.min(t?.scale ?? 1, Math.max(1, room));
   return (
     <div
       data-el={el}
