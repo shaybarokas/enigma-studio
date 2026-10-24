@@ -52,19 +52,22 @@ export function VideoEditor({
   initial,
   onClose,
   onCreated,
+  start,
 }: {
   kitId: string;
   video: Video;
   initial: VideoProps;
+  start?: { ops: EditOp[]; note: string }; // edits asked for in the kit's chat, applied on open
   onClose: () => void;
   onCreated: (v: Video) => void;
 }) {
-  const [spec, setSpec] = useState(initial);
-  const [revoice, setRevoice] = useState<Revoice[]>([]);
+  const [opened] = useState(() => (start ? applyEdits(initial, start.ops) : { spec: initial, revoice: [] as Revoice[] }));
+  const [spec, setSpec] = useState(opened.spec);
+  const [revoice, setRevoice] = useState<Revoice[]>(opened.revoice);
   const [sel, setSel] = useState(0);
   const [ask, setAsk] = useState("");
   const [busy, setBusy] = useState<"agent" | "save" | null>(null);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(start?.note ?? "");
   const [error, setError] = useState("");
   const player = useRef<PlayerRef>(null);
   const dirty = spec !== initial || revoice.length > 0;

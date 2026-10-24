@@ -12,6 +12,8 @@ import type { DesignProps } from "@/engine/design";
 import { NOT_ENOUGH, refund, spend } from "@/lib/credits";
 import { getUserAndClient, type ChatMessage } from "@/lib/kits";
 import { COST } from "@/lib/plans";
+import { videoSchema } from "@/engine/video/schema";
+import { planVideoEdit, routeKitEdit } from "@/lib/video/edit-agent";
 
 export const maxDuration = 180;
 
@@ -44,6 +46,13 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
     try {
       const recent = history.slice(-12);
       while (recent[0]?.role === "assistant") recent.shift(); // a conversation must open with the user
+      // A request about one of the finished videos goes to the video editor's agent; its edits open
+      // in the editor, where the user sees them and saves a version.
+      const video = await videoRequest(supabase, id, recent, messages, message);
+      if (video) {
+        await supabase.from("kits").update({ messages: [...messages, video.reply] }).eq("id", id);
+        return NextResponse.json(video);
+      }
       const edit = await planEdit(recent, kit.design as DesignProps);
       let background: { wide: string; tall: string } | undefined;
       // A new scene costs more; without the credits the rest of the change still applies.
@@ -85,4 +94,39 @@ export async function POST(req: Request, ctx: RouteContext<"/api/kits/[id]/chat"
     console.error("[chat]", e);
     return NextResponse.json({ error: "הסוכן לא הצליח לענות כרגע. נסו שוב." }, { status: 502 });
   }
+}
+
+const KIND_NAMES: Record<string, string> = { promo: "סרטון פרומו", marketing: "סרטון שיווק" };
+
+async function videoRequest(
+  supabase: Awaited<ReturnType<typeof getUserAndClient>>["supabase"],
+  kitId: string,
+  recent: Anthropic.Beta.BetaMessageParam[],
+  messages: ChatMessage[],
+  message: string,
+) {
+  const { data } = await supabase.from("videos").select("id, kind, spec, edited_from").eq("kit_id", kitId).eq("status", "ready").order("created_at", { ascending: false }).limit(6);
+  const videos = (data ?? []).flatMap((v) => {
+    const spec = videoSchema.safeParse(v.spec);
+    return spec.success ? [{ id: v.id as string, kind: v.kind as string, edited: !!v.edited_from, spec: spec.data }] : [];
+  });
+  if (!videos.length) return null;
+  const route = await routeKitEdit(
+    recent,
+    videos.map((v) => ({
+      kind: v.kind,
+      label: `${KIND_NAMES[v.kind] ?? "סרטון"}${v.edited ? " · גרסה ערוכה" : ""}`,
+      opening: v.spec.scenes[0]?.title || v.spec.scenes[0]?.words.map((w) => w.text).join(" ").slice(0, 60) || "",
+    })),
+  );
+  if (route.target !== "video") return null;
+  const video = videos[(route.video ?? 1) - 1] ?? videos[0];
+  const context = messages
+    .slice(-7, -1)
+    .map((m) => `${m.role === "user" ? "משתמש" : "סוכן"}: ${m.text}`)
+    .join("\n");
+  const out = await planVideoEdit(video.spec, message, context);
+  const opened = out.ops.length > 0;
+  const reply: ChatMessage = { role: "assistant", text: opened ? `${out.reply}\nפתחתי את הסרטון בעורך עם השינויים: בדקו בתצוגה ושמרו כגרסה חדשה.` : out.reply };
+  return { reply, videoEdit: opened ? { videoId: video.id, ops: out.ops, note: out.reply } : undefined };
 }

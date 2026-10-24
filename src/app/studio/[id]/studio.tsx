@@ -7,6 +7,7 @@ import { Canvas } from "./canvas";
 import { Paywalled, paywalled } from "@/components/account";
 import type { MediaRole } from "@/lib/agent/media-names";
 import { uploadKitImages } from "@/lib/upload-images";
+import type { VideoEditRequest } from "@/lib/video/video-edits";
 
 // The studio: the agent's chat on one side, the kit taking shape on the other.
 export function Studio({ initial }: { initial: Kit }) {
@@ -16,6 +17,7 @@ export function Studio({ initial }: { initial: Kit }) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"chat" | "kit">(initial.status === "interview" ? "chat" : "kit");
+  const [videoEdit, setVideoEdit] = useState<VideoEditRequest | null>(null);
 
   const post = async (path: string, body?: BodyInit, json = true) => {
     const res = await fetch(`/api/kits/${kit.id}${path}`, {
@@ -50,6 +52,11 @@ export function Studio({ initial }: { initial: Kit }) {
         subject: d.subject ?? k.subject,
         concepts: d.concepts ?? k.concepts,
       }));
+      // A change to a video opens it in the video editor, with the change applied.
+      if (d.videoEdit) {
+        setVideoEdit((r) => ({ ...d.videoEdit, at: (r?.at ?? 0) + 1 }));
+        setTab("kit");
+      }
     } catch (e) {
       if (!(e instanceof Paywalled)) setError((e as Error).message);
       setKit((k) => ({ ...k, messages: k.messages.slice(0, -1) }));
@@ -180,6 +187,7 @@ export function Studio({ initial }: { initial: Kit }) {
           onChoose={choose}
           onReopenConcepts={reopenConcepts}
           onDesignChange={(design) => setKit((k) => ({ ...k, design }))}
+          videoEdit={videoEdit}
         />
       </section>
     </div>

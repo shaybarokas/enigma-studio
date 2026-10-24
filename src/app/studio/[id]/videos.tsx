@@ -2,12 +2,13 @@
 
 // The kit's videos: pick a kind and a narrator, approve the storyboard the agent writes, then watch
 // the production move through its steps.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LENGTH } from "@/lib/video/storyboard-ui";
 import { CourseClips } from "./clips";
 import { StoryboardEditor, type Video } from "./storyboard";
 import { VideoEditor } from "./video-editor";
 import type { VideoProps } from "@/engine/video/schema";
+import type { EditOp, VideoEditRequest } from "@/lib/video/video-edits";
 import type { CourseClip } from "@/lib/video/storyboard-ui";
 import { DEFAULT_VOICE, VOICES, VOICE_KEYS } from "@/lib/video/voices";
 import { paywalled, refreshAccount, useAccount } from "@/components/account";
@@ -33,9 +34,11 @@ const STEPS: Record<string, string> = {
 export function Videos({
   kitId,
   unlocked,
+  request,
 }: {
   kitId: string;
   unlocked: boolean;
+  request?: VideoEditRequest | null; // a change the kit's chat asked for on one of the videos
 }) {
   const [videos, setVideos] = useState<Video[] | null>(null);
   const [voice, setVoice] = useState<string>(DEFAULT_VOICE);
@@ -95,20 +98,23 @@ export function Videos({
   const [editing2, setEditing2] = useState<{
     video: Video;
     spec: VideoProps;
+    start?: { ops: EditOp[]; note: string };
   } | null>(null);
-  const openEditor = async (v: Video) => {
-    setError("");
-    const res = await fetch(`/api/kits/${kitId}/videos/${v.id}`).catch(
-      () => null,
-    );
-    const data = await res?.json().catch(() => ({}));
-    const spec = data?.video?.spec as VideoProps | undefined;
-    if (!res?.ok || !spec?.scenes?.[0]?.role)
-      return setError(
-        "את הסרטון הזה אי אפשר לערוך בעורך (הופק בגרסה קודמת). אפשר ליצור גרסה חדשה מהתסריט.",
-      );
-    setEditing2({ video: v, spec });
-  };
+  const openEditor = (v: Video, start?: { ops: EditOp[]; note: string }) =>
+    editorSpec(kitId, v.id).then((spec) => {
+      setError(spec ? "" : "את הסרטון הזה אי אפשר לערוך בעורך (הופק בגרסה קודמת). אפשר ליצור גרסה חדשה מהתסריט.");
+      if (spec) setEditing2({ video: v, spec, start });
+    });
+  // The chat's request opens once its video is in the list.
+  const handled = useRef(0);
+  useEffect(() => {
+    if (!request || request.at === handled.current) return;
+    const v = videos?.find((x) => x.id === request.videoId);
+    if (!v) return;
+    handled.current = request.at;
+    openEditor(v, request);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when a request arrives or the list loads
+  }, [request, videos]);
   const reopen = async (v: Video) => {
     setError("");
     const res = await fetch(`/api/kits/${kitId}/videos/${v.id}`, {
@@ -305,6 +311,7 @@ export function Videos({
           kitId={kitId}
           video={editing2.video}
           initial={editing2.spec}
+          start={editing2.start}
           onClose={() => setEditing2(null)}
           onCreated={(nv) => {
             setVideos((vs) => [nv, ...(vs ?? [])]);
@@ -314,4 +321,11 @@ export function Videos({
       )}
     </section>
   );
+}
+
+/** A finished video's render spec, or null when the editor can't open it (made by the older engine). */
+async function editorSpec(kitId: string, videoId: string): Promise<VideoProps | null> {
+  const res = await fetch(`/api/kits/${kitId}/videos/${videoId}`).catch(() => null);
+  const data = await res?.json().catch(() => ({}));
+  return res?.ok ? ((data?.video?.spec as VideoProps | null) ?? null) : null;
 }

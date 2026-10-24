@@ -12,6 +12,7 @@ import { Videos } from "./videos";
 import { Paywalled, paywalled, refreshAccount, showUpgrade, useAccount } from "@/components/account";
 import { COST, kitFeatures } from "@/lib/plans";
 import { ROLE_NAMES, ROLE_ORDER, type MediaRole } from "@/lib/agent/media-names";
+import type { VideoEditRequest } from "@/lib/video/video-edits";
 
 type Props = {
   kit: Kit;
@@ -23,6 +24,7 @@ type Props = {
   onChoose: (i: number) => void;
   onReopenConcepts: () => void;
   onDesignChange: (d: DesignProps) => void;
+  videoEdit: VideoEditRequest | null;
 };
 
 export function Canvas(p: Props) {
@@ -37,6 +39,7 @@ export function Canvas(p: Props) {
         unlocked={p.kit.unlocked}
         onReopen={p.onReopenConcepts}
         onDesignChange={p.onDesignChange}
+        videoEdit={p.videoEdit}
       />
     );
   if (p.kit.concepts) return <Concepts kit={p.kit} onChoose={p.onChoose} onRegenerate={p.onGenerate} />;
@@ -406,6 +409,7 @@ function Gallery({
   unlocked: initiallyUnlocked,
   onReopen,
   onDesignChange,
+  videoEdit,
 }: {
   kitId: string;
   design: DesignProps;
@@ -414,6 +418,7 @@ function Gallery({
   unlocked: boolean;
   onReopen: () => void;
   onDesignChange: (d: DesignProps) => void;
+  videoEdit: VideoEditRequest | null;
 }) {
   const [live, setLive] = useState<{ template: TemplateId; format: FormatId } | null>(null);
   const [editing, setEditing] = useState<{ template: TemplateId; format: FormatId } | null>(null);
@@ -482,7 +487,7 @@ function Gallery({
           </ul>
         </section>
       ))}
-      <Videos kitId={kitId} unlocked={unlocked} />
+      <Videos kitId={kitId} unlocked={unlocked} request={videoEdit} />
       {live && (
         <LiveView
           kitId={kitId}

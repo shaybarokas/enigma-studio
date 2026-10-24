@@ -39,7 +39,7 @@ Images:
 /** The chat as Claude sees it: images as images, with what each one is; a pasted link's text added
  * to the last message. The greeting is ours, not part of the model's conversation. */
 export function historyFrom(messages: ChatMessage[], context = ""): Anthropic.Beta.BetaMessageParam[] {
-  const turns = messages.slice(1);
+  const turns = messages[0]?.role === "assistant" ? messages.slice(1) : messages;
   return turns.map((m, i) => {
     const text = (m.text || (m.images?.length ? "(העליתי תמונות)" : "")) + (i === turns.length - 1 ? context : "");
     if (m.role === "user" && m.images?.length) {

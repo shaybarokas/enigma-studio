@@ -16,6 +16,8 @@ export type EditOp = {
   style?: string | null; // caption style or transition
 };
 export type Revoice = { scene: number; text: string }; // 1-based
+/** Edits the kit's chat asked for on one video: they open in the video editor. `at` tells requests apart. */
+export type VideoEditRequest = { videoId: string; ops: EditOp[]; note: string; at: number };
 
 const clean = (w: string) => w.replace(/[.,!?:;…"״׳']/g, "");
 const HEX = /^#[0-9a-f]{6}$/i;
