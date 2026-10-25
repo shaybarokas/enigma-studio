@@ -10,6 +10,8 @@ async function handle(request: NextRequest) {
   else {
     const status = await settleOrder(order);
     target.searchParams.set("status", status === "paid" ? "paid" : "pending");
+    // The plans page reports the confirmed payment to the Meta pixel (it re-checks the order itself).
+    if (status === "paid") target.searchParams.set("order", order);
   }
   return NextResponse.redirect(target, 303);
 }

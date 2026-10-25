@@ -2,7 +2,8 @@
 
 import { WA_TEXT, WhatsAppIcon, WhatsAppLink } from "@/components/whatsapp";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { track } from "@/components/meta-pixel";
 import { COST, PACKS, PLANS, PLAN_FEATURES, ils, type Interval, type PlanId } from "@/lib/plans";
 
 const ORDER: PlanId[] = ["free", "basic", "pro", "business"];
@@ -10,8 +11,21 @@ const ORDER: PlanId[] = ["free", "basic", "pro", "business"];
 // The plans, with the monthly/annual switch. Everything starts from sign-up; paying happens inside.
 export function Pricing() {
   const [period, setPeriod] = useState<Interval>("year");
+  const ref = useRef<HTMLDivElement>(null);
+  // ViewContent for the Meta pixel once the plans actually come into view.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      track("ViewContent", { content_name: "מחירים", content_category: "plans" });
+      io.disconnect();
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
-    <div className="space-y-8">
+    <div ref={ref} className="space-y-8">
       <div className="flex justify-center">
         <div className="inline-flex rounded-full border border-border bg-surface p-1" role="radiogroup" aria-label="תדירות חיוב">
           {(["month", "year"] as const).map((i) => (

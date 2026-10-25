@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
         if (data.user.user_metadata?.marketing === true)
           await createAdminClient().from("accounts").update({ marketing_consent: true, marketing_consent_at: new Date().toISOString() }).eq("user_id", data.user.id);
         await trySend({ to: data.user.email, ...welcomeEmail((data.user.user_metadata?.full_name as string | undefined) || null) }, "welcome");
+        // Confirmed just now = a new account (not a sign-in link to an old one): the studio reports
+        // the signup to the Meta pixel.
+        if (Date.now() - new Date(data.user.email_confirmed_at ?? 0).getTime() < 10 * 60_000) target.searchParams.set("welcome", "1");
       }
       return NextResponse.redirect(target);
     }

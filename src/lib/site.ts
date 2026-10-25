@@ -4,5 +4,5 @@ export const SITE = {
   operator: "שי בארוקס",
   operatorType: "עוסק מורשה",
   contactEmail: "enigma@enigma-digital.co",
-  legalUpdated: "22 באוקטובר 2026",
+  legalUpdated: "25 באוקטובר 2026",
 } as const;

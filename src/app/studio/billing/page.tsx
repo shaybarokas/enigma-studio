@@ -5,6 +5,8 @@ import { getUserAndClient } from "@/lib/kits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdmin } from "@/lib/admin";
 import { WA_TEXT, WhatsAppIcon, WhatsAppLink } from "@/components/whatsapp";
+import { TrackOnce } from "@/components/meta-pixel";
+import { PLANS } from "@/lib/plans";
 import { Billing, type BillingAccount, type Order } from "./billing";
 
 export const metadata = { title: "מסלולים וקרדיטים | Enigma Studio" };
@@ -18,7 +20,7 @@ export default function BillingPage({ searchParams }: PageProps<"/studio/billing
 }
 
 async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billing">["searchParams"] }) {
-  const { status } = await searchParams;
+  const { status, order } = await searchParams;
   const { supabase, user } = await getUserAndClient();
   if (!user) return null;
   const a = await getAccount(user.id);
@@ -33,6 +35,12 @@ async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billi
     .eq("status", "paid")
     .order("paid_at", { ascending: false })
     .limit(12);
+  // Back from PayPlus with a paid order: the payment, for the Meta pixel. Only an order of this
+  // account that the database marks paid, in the last day (an old link opened again sends nothing).
+  const bought =
+    status === "paid" && typeof order === "string"
+      ? (orders ?? []).find((o) => o.id === order && paidToday(o.paid_at))
+      : undefined;
   const account: BillingAccount = {
     plan: a.plan,
     interval: more?.billing_interval ?? null,
@@ -49,6 +57,7 @@ async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billi
   return (
     <>
       <Billing account={account} orders={(orders ?? []) as Order[]} status={typeof status === "string" ? status : null} />
+      {bought && <TrackOnce events={purchaseEvents(bought as Order)} eventID={bought.id} strip="order" />}
       <p className="pb-8 text-center text-sm text-muted">
         יש שאלה על המנוי או הקרדיטים?{" "}
         <WhatsAppLink text={WA_TEXT.billing} className="inline-flex items-center gap-1.5 font-bold text-brand underline-offset-2 hover:underline">
@@ -65,4 +74,18 @@ async function Loader({ searchParams }: { searchParams: PageProps<"/studio/billi
       )}
     </>
   );
+}
+
+const paidToday = (at: string) => Date.now() - new Date(at).getTime() < 86_400_000;
+
+// Purchase for every payment; Subscribe too when it starts a paid plan.
+function purchaseEvents(o: Order) {
+  const params = {
+    value: Number(o.amount),
+    currency: "ILS",
+    content_type: "product",
+    content_ids: [o.kind === "pack" ? `pack-${o.credits}` : `${o.plan}-${o.billing_interval}`],
+    content_name: o.kind === "pack" ? `${o.credits} קרדיטים` : `מסלול ${PLANS[o.plan ?? "basic"].name}${o.billing_interval === "year" ? " שנתי" : ""}`,
+  };
+  return o.kind === "subscribe" ? [{ name: "Purchase", params }, { name: "Subscribe", params }] : [{ name: "Purchase", params }];
 }

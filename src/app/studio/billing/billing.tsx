@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { refreshAccount } from "@/components/account";
+import { track } from "@/components/meta-pixel";
 import { COST, PACKS, PLANS, PLAN_FEATURES, discounted, ils, type Interval, type PaidPlan, type PlanId } from "@/lib/plans";
 
 export type BillingAccount = {
@@ -62,7 +63,12 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
     if (status === "paid") refreshAccount();
   }, [status]);
 
-  const buy = async (key: string, body: object) => {
+  useEffect(() => {
+    track("ViewContent", { content_name: "מסלולים וקרדיטים", content_category: "plans" });
+  }, []);
+
+  // `value` and `item` (the price as shown, and what is bought) are for the Meta pixel's InitiateCheckout.
+  const buy = async (key: string, body: object, value: number, item: string) => {
     setBusy(key);
     setError("");
     const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -71,6 +77,7 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
       setBusy(null);
       return setError(data.error ?? "עמוד התשלום לא נפתח. נסו שוב.");
     }
+    track("InitiateCheckout", { value, currency: "ILS", content_ids: [item], num_items: 1 });
     window.location.assign(data.link);
   };
 
@@ -188,7 +195,7 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
                   <p className="mt-6 rounded-full border border-brand py-2.5 text-center text-sm font-bold text-brand">המסלול הנוכחי</p>
                 ) : (
                   <button
-                    onClick={() => buy(id, { kind: "subscribe", plan: id, interval: period, coupon: discount?.code })}
+                    onClick={() => buy(id, { kind: "subscribe", plan: id, interval: period, coupon: discount?.code }, pay(p.price[period]), `${id}-${period}`)}
                     disabled={busy !== null}
                     className={`mt-6 rounded-full py-2.5 font-bold transition disabled:opacity-60 ${featured ? "bg-brand text-white shadow-lg shadow-brand/30 hover:bg-brand-strong" : "border border-brand text-brand hover:bg-brand/10"}`}
                   >
@@ -245,7 +252,7 @@ export function Billing({ account, orders, status }: { account: BillingAccount; 
                 </p>
               </div>
               <button
-                onClick={() => buy(pack.id, { kind: "pack", pack: pack.id })}
+                onClick={() => buy(pack.id, { kind: "pack", pack: pack.id }, pack.price, `pack-${pack.credits}`)}
                 disabled={busy !== null}
                 className="rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-strong disabled:opacity-60"
               >

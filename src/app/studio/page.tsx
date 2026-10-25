@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { listKits } from "@/lib/kits";
+import { getUserAndClient, listKits } from "@/lib/kits";
+import { TrackOnce } from "@/components/meta-pixel";
 import { NewKitButton } from "./new-kit-button";
 import { KitCover } from "./kit-cover";
 import { KitActions } from "./kit-actions";
@@ -25,7 +26,12 @@ export default function StudioHome({ searchParams }: PageProps<"/studio">) {
 }
 
 async function Notice({ searchParams }: { searchParams: PageProps<"/studio">["searchParams"] }) {
-  const { password } = await searchParams;
+  const { password, welcome } = await searchParams;
+  // A new account, straight from the confirmation link (see /auth/confirm).
+  if (welcome === "1") {
+    const { user } = await getUserAndClient();
+    return user ? <TrackOnce events={[{ name: "CompleteRegistration" }]} eventID={user.id} strip="welcome" /> : null;
+  }
   if (password !== "changed") return null;
   return (
     <p role="status" className="mx-auto mt-4 w-full max-w-6xl rounded-2xl bg-ok/10 p-3 text-center text-sm font-semibold text-ok">
