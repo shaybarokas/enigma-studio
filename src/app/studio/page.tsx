@@ -4,6 +4,8 @@ import { listKits } from "@/lib/kits";
 import { NewKitButton } from "./new-kit-button";
 import { KitCover } from "./kit-cover";
 import { KitActions } from "./kit-actions";
+import { TutorialButton } from "@/components/tutorial-video";
+import { TUTORIAL } from "@/lib/tutorial";
 
 export const metadata = { title: "הערכות שלי | Enigma Studio" };
 
@@ -44,6 +46,7 @@ async function Kits() {
           כמה דקות של שיחה עם הסוכן, ומקבלים ערכת השקה שלמה: גרפיקות ומודעות מרהיבות בכל הגדלים, בקו עיצובי אחד.
         </p>
         <NewKitButton big />
+        <TutorialButton className="text-sm font-semibold text-muted underline-offset-4 hover:text-text hover:underline">▶ קודם לראות איך זה עובד ({TUTORIAL.length})</TutorialButton>
       </main>
     );
   }
@@ -51,7 +54,10 @@ async function Kits() {
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-black">הערכות שלי</h1>
-        <NewKitButton />
+        <div className="flex flex-wrap items-center gap-2">
+          <TutorialButton className="rounded-full border border-border px-4 py-2.5 text-sm font-bold hover:border-brand">▶ סרטון הדרכה</TutorialButton>
+          <NewKitButton />
+        </div>
       </div>
       <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {kits.map((k) => (

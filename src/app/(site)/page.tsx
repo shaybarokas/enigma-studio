@@ -1,3 +1,5 @@
+import { TutorialVideo } from "@/components/tutorial-video";
+import { TUTORIAL } from "@/lib/tutorial";
 import Link from "next/link";
 import { COST } from "@/lib/plans";
 import { Examples, PhoneVideo } from "./examples";
@@ -80,7 +82,12 @@ export default function Home() {
                 לדוגמאות
               </a>
             </div>
-            <p className="mt-4 text-sm text-white/50">15 קרדיטים בחינם בכל חודש · בלי כרטיס אשראי</p>
+            <p className="mt-4 text-sm text-white/50">
+              15 קרדיטים בחינם בכל חודש · בלי כרטיס אשראי ·{" "}
+              <a href="#tutorial" className="font-semibold text-white/80 underline-offset-4 hover:text-white hover:underline">
+                ▶ סרטון הדרכה ({TUTORIAL.length})
+              </a>
+            </p>
           </div>
 
           {hero && (
@@ -131,6 +138,13 @@ export default function Home() {
             </li>
           ))}
         </ol>
+        <div id="tutorial" className="mx-auto mt-14 max-w-4xl scroll-mt-24">
+          <h3 className="text-center text-2xl font-black md:text-3xl">ככה זה נראה, תוך {TUTORIAL.length}</h3>
+          <p className="mx-auto mt-2 max-w-2xl text-center text-muted">מהשיחה הראשונה עם הסוכן ועד סרטון מוכן: כיוונים, הערכה בכל הגדלים, שינויים, סרטונים ועורך הסרטון.</p>
+          <div className="mt-8">
+            <TutorialVideo />
+          </div>
+        </div>
       </section>
 
       <section id="examples" className="scroll-mt-20 bg-surface py-20">
